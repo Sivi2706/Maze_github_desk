@@ -11,16 +11,16 @@
 #define RIGHT_ECHO_PIN A0
 
 // Encoder pin definitions
-const int LEFT_ENCODER_PIN = 7;
-const int RIGHT_ENCODER_PIN = 8;
+#define LEFT_ENCODER_PIN  7
+#define RIGHT_ENCODER_PIN 8
 
 // Motor Pins
-const int IN1 = 2;
-const int IN2 = 4;
-const int IN3 = 5;
-const int IN4 = 6;
-const int FNA = 3;
-const int FNB = 11;
+#define IN1 2
+#define IN2 4
+#define IN3 5
+#define IN4 6
+#define FNA 3
+#define FNB 11
 
 // Maximum distance for ultrasonic sensors (in centimeters)
 #define MAX_DISTANCE 400
