@@ -1,5 +1,16 @@
 #include <Arduino.h>
 #include <PinChangeInterrupt.h>
+#include "NewPing.h"
+
+// Ultrasonic Sensor Pins
+
+#define FRONT_TRIGGER_PIN A5
+#define FRONT_ECHO_PIN A4
+#define LEFT_TRIGGER_PIN A3
+#define LEFT_ECHO_PIN A2
+#define RIGHT_TRIGGER_PIN A1
+#define RIGHT_ECHO_PIN A0
+
 
 // Encoder pin definitions
 #define LEFT_ENCODER_PIN  7
@@ -12,6 +23,16 @@
 #define IN4 6
 #define FNA 3
 #define FNB 11
+
+// Maximum distance for ultrasonic sensors (in centimeters)
+#define MAX_DISTANCE 400
+
+
+// NewPing objects for each ultrasonic sensor
+NewPing front(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN, MAX_DISTANCE);
+NewPing left(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN, MAX_DISTANCE);
+NewPing right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
+
 
 // Target distance to travel (in centimeters)
 #define TARGET_DISTANCE 90.0
@@ -80,6 +101,26 @@ void Stop() {
     Serial.println("Stopped - Left Distance: " + String(leftTotalDistance) + " cm | Right Distance: " + String(rightTotalDistance) + " cm");
 }
 
+void TurnRight() {
+    isMovingForward = false;
+    analogWrite(FNA, 255);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    analogWrite(FNB, 255);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+}
+
+void TurnLeft() {
+    isMovingForward = false;
+    analogWrite(FNA, 255);
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(FNB, 255);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+}
+
 void updateDistance() {
     if (isMovingForward) {
         // Calculate distance for each wheel
@@ -115,6 +156,10 @@ void updateDistance() {
 }
 
 void loop() {
+    // Read distance from front ultrasonic sensor
+    int frontDistance = front.ping_cm();
+
+    // Update and display distance only while moving forward
     updateDistance();
 
     // Move forward if the target is not yet reached
