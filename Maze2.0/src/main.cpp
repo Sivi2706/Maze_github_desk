@@ -1,6 +1,6 @@
-
-
 #include "NewPing.h"
+#include "EnableInterrupt.h"
+#include "Rotary.h"
 
 // Ultrasonic Sensor Pins
 #define FRONT_TRIGGER_PIN A5
@@ -10,14 +10,11 @@
 #define RIGHT_TRIGGER_PIN A1 // Define pins for right sensor
 #define RIGHT_ECHO_PIN A0
 
-//Rotary encoder pins 
-#define Left_Encoder 7
-#define Right_Encoder 8
-
-//Yellow=Right 
-//Orange=Left
-
-
+// Rotary Encoder Pins
+#define LEFT_ENCODER_PIN1 7  // Pin for left encoder channel A
+#define LEFT_ENCODER_PIN2 8  // Pin for left encoder channel B
+#define RIGHT_ENCODER_PIN1 9 // Pin for right encoder channel A
+#define RIGHT_ENCODER_PIN2 10 // Pin for right encoder channel B
 
 // Motor Pins
 const int IN1 = 2;
@@ -35,11 +32,17 @@ NewPing front(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN, MAX_DISTANCE);
 NewPing left(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN, MAX_DISTANCE);
 NewPing right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
 
-// Rotary Encoder Variables
-volatile int count_l = 0; // Counter for rotary encoder
+// Rotary Encoder Objects
+Rotary leftEncoder(LEFT_ENCODER_PIN1, LEFT_ENCODER_PIN2);
+Rotary rightEncoder(RIGHT_ENCODER_PIN1, RIGHT_ENCODER_PIN2);
 
-// Function Prototype for Rotary Encoder ISR
-void counter();
+// Rotary Encoder Counters
+volatile int leftEncoderCount = 0;
+volatile int rightEncoderCount = 0;
+
+// Function Prototypes for Rotary Encoder ISRs
+void leftEncoderISR();
+void rightEncoderISR();
 
 void setup() {
     Serial.begin(9600); // Initialize serial communication
@@ -53,7 +56,14 @@ void setup() {
     pinMode(FNB, OUTPUT);
 
     // Rotary Encoder Setup
-    attachInterrupt(digitalPinToInterrupt(10), counter, RISING); // Attach interrupt for rotary encoder
+    leftEncoder.begin(); // Initialize left encoder
+    rightEncoder.begin(); // Initialize right encoder
+
+    // Attach interrupts for rotary encoders
+    enableInterrupt(LEFT_ENCODER_PIN1, leftEncoderISR, CHANGE);
+    enableInterrupt(LEFT_ENCODER_PIN2, leftEncoderISR, CHANGE);
+    enableInterrupt(RIGHT_ENCODER_PIN1, rightEncoderISR, CHANGE);
+    enableInterrupt(RIGHT_ENCODER_PIN2, rightEncoderISR, CHANGE);
 }
 
 void MoveForward(int PWM) {
@@ -90,9 +100,24 @@ void TurnRight() {
     digitalWrite(IN4, LOW);
 }
 
-// Rotary Encoder Interrupt Service Routine
-void counter() {
-    count_l++; // Increment counter on each rising edge
+// Left Rotary Encoder ISR
+void leftEncoderISR() {
+    unsigned char result = leftEncoder.process();
+    if (result == DIR_CW) {
+        leftEncoderCount++;
+    } else if (result == DIR_CCW) {
+        leftEncoderCount--;
+    }
+}
+
+// Right Rotary Encoder ISR
+void rightEncoderISR() {
+    unsigned char result = rightEncoder.process();
+    if (result == DIR_CW) {
+        rightEncoderCount++;
+    } else if (result == DIR_CCW) {
+        rightEncoderCount--;
+    }
 }
 
 void loop() {
@@ -111,10 +136,12 @@ void loop() {
     Serial.println(" cm");
 
     // Rotary Encoder Calculations
-    double var_1 = count_l / 20.0; // Convert counts to rotations
-    double var_2 = var_1 * 2 * 3.242 * 6.5; // Calculate distance traveled (example formula)
-    Serial.print("Distance Traveled = ");
-    Serial.print(var_2);
+    double leftDistanceTraveled = (leftEncoderCount / 20.0) * 2 * 3.242 * 6.5; // Example formula for left wheel
+    double rightDistanceTraveled = (rightEncoderCount / 20.0) * 2 * 3.242 * 6.5; // Example formula for right wheel
+    Serial.print("Left Distance Traveled = ");
+    Serial.print(leftDistanceTraveled);
+    Serial.print(" cm | Right Distance Traveled = ");
+    Serial.print(rightDistanceTraveled);
     Serial.println(" cm");
 
     // Obstacle Avoidance Logic
