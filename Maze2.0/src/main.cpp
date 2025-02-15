@@ -1,11 +1,16 @@
 #include "NewPing.h"
 #include <LiquidCrystal.h>
 
-//hi there 
-
 // Hook up HC-SR04 with Trig to Arduino Pin A4, Echo to Arduino Pin A5
 #define TRIGGER_PIN A5
 #define ECHO_PIN A4 
+
+#define FRONT_TRIGGER_PIN A5
+#define FRONT_ECHO_PIN A4
+#define LEFT_TRIGGER_PIN
+#define LEFT_ECHO_PIN
+#define RIGHT_TRIGGER_PIN
+#define RIGHT_ECHO_PIN
 
 // Motor Pins
 const int IN1 = 1;
@@ -23,7 +28,10 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 #define MAX_DISTANCE 400	
 
 // NewPing setup of pins and maximum distance
-NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); //this line can be removed
+NewPing front(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN, MAX_DISTANCE);
+NewPing left(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN, MAX_DISTANCE);
+NewPing right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
 
 void setup() {
 	Serial.begin(9600);
@@ -56,6 +64,24 @@ void Stop() {
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
     digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+}
+
+void TurnLeft() {
+    analogWrite(FNA, 255);
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(FNB, 255);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+}
+
+void TurnRight() {
+    analogWrite(FNA, 255);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    analogWrite(FNB, 255);
+    digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
 }
 
@@ -94,3 +120,25 @@ void loop() {
     }
     delay(100); // Short delay for smoother operation
 }
+
+
+
+
+
+
+/*
+For the rotary encoder part
+
+void setup() {
+...
+
+  attachPCINT(10, counter, RISING);
+}
+
+
+void loop() {
+...
+
+  double var_1 = count_l/20;
+  double var_2 = var_1*2*3.242*6.5;}
+*/
