@@ -1,6 +1,8 @@
 #include "NewPing.h"
 #include <LiquidCrystal.h>
 
+//hi there 
+
 // Hook up HC-SR04 with Trig to Arduino Pin A4, Echo to Arduino Pin A5
 #define TRIGGER_PIN A5
 #define ECHO_PIN A4 
