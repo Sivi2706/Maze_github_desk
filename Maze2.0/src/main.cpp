@@ -10,7 +10,14 @@
 #define RIGHT_TRIGGER_PIN A1 // Define pins for right sensor
 #define RIGHT_ECHO_PIN A0
 
-//Testing Durvish 
+//Rotary encoder pins 
+#define Left_Encoder 7
+#define Right_Encoder 8
+
+//Yellow=Right 
+//Orange=Left
+
+
 
 // Motor Pins
 const int IN1 = 2;
