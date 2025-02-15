@@ -9,7 +9,7 @@
 #define LEFT_ECHO_PIN A2
 #define RIGHT_TRIGGER_PIN A1 // Define pins for right sensor
 #define RIGHT_ECHO_PIN A0
-
+a
 //Testing Durvish 
 
 // Motor Pins
@@ -88,7 +88,6 @@ void counter() {
     count_l++; // Increment counter on each rising edge
 }
 
-void loop() {
     // Read distances from ultrasonic sensors
     int frontDistance = front.ping_cm();
     int leftDistance = left.ping_cm();
@@ -127,4 +126,3 @@ void loop() {
     }
 
     delay(100); // Short delay for smoother operation
-}
