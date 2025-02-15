@@ -3,12 +3,12 @@
 #include "NewPing.h"
 
 // Ultrasonic Sensor Pins
-#define FRONT_TRIGGER_PIN A5
-#define FRONT_ECHO_PIN A4
+#define FRONT_TRIGGER_PIN A5 //Front sensor
+#define FRONT_ECHO_PIN A4// Front sensor 
 #define LEFT_TRIGGER_PIN A3  // Define pins for left sensor
-#define LEFT_ECHO_PIN A2
+#define LEFT_ECHO_PIN A2//Left sensor
 #define RIGHT_TRIGGER_PIN A1 // Define pins for right sensor
-#define RIGHT_ECHO_PIN A0
+#define RIGHT_ECHO_PIN A0// Right sensor 
 
 //Rotary encoder pins 
 #define Left_Encoder 7
