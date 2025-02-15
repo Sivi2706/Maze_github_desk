@@ -1,8 +1,17 @@
-
-
+#include <Arduino.h>
+#include <PinChangeInterrupt.h>
 #include "NewPing.h"
 
 // Ultrasonic Sensor Pins
+
+#define FRONT_TRIGGER_PIN A5
+#define FRONT_ECHO_PIN A4
+#define LEFT_TRIGGER_PIN A3
+#define LEFT_ECHO_PIN A2
+#define RIGHT_TRIGGER_PIN A1
+#define RIGHT_ECHO_PIN A0
+
+
 #define FRONT_TRIGGER_PIN A5 //Front sensor
 #define FRONT_ECHO_PIN A4// Front sensor 
 #define LEFT_TRIGGER_PIN A3  // Define pins for left sensor
@@ -10,24 +19,19 @@
 #define RIGHT_TRIGGER_PIN A1 // Define pins for right sensor
 #define RIGHT_ECHO_PIN A0// Right sensor 
 
-//Rotary encoder pins 
-#define Left_Encoder 7
-#define Right_Encoder 8
-
-//Yellow=Right 
-//Orange=Left
-
-
+// Encoder pin definitions
+#define LEFT_ENCODER_PIN  7
+#define RIGHT_ENCODER_PIN 8
 
 // Motor Pins
-const int IN1 = 2;
-const int IN2 = 4;
-const int IN3 = 5;
-const int IN4 = 6;
-const int FNA = 3;
-const int FNB = 11;
+#define IN1 2
+#define IN2 4
+#define IN3 5
+#define IN4 6
+#define FNA 3
+#define FNB 11
 
-// Maximum distance we want to ping for (in centimeters)
+// Maximum distance for ultrasonic sensors (in centimeters)
 #define MAX_DISTANCE 400
 
 // NewPing objects for each ultrasonic sensor
@@ -35,14 +39,28 @@ NewPing front(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN, MAX_DISTANCE);
 NewPing left(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN, MAX_DISTANCE);
 NewPing right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
 
-// Rotary Encoder Variables
-volatile int count_l = 0; // Counter for rotary encoder
+// Encoder and distance calculation variables
+volatile unsigned long leftPulses = 0;
+volatile unsigned long rightPulses = 0;
+const unsigned int PULSES_PER_TURN = 20;
+const float WHEEL_DIAMETER = 6.5;  // in cm
+const float WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
 
-// Function Prototype for Rotary Encoder ISR
-void counter();
+// Total distance tracking
+float totalDistance = 0;
+bool isMovingForward = false;
+
+// Interrupt service routines for encoders
+void leftEncoderISR() {
+    leftPulses++;
+}
+
+void rightEncoderISR() {
+    rightPulses++;
+}
 
 void setup() {
-    Serial.begin(9600); // Initialize serial communication
+    Serial.begin(9600);
 
     // Motor Pin Setup
     pinMode(IN1, OUTPUT);
@@ -52,11 +70,17 @@ void setup() {
     pinMode(FNA, OUTPUT);
     pinMode(FNB, OUTPUT);
 
-    // Rotary Encoder Setup
-    attachInterrupt(digitalPinToInterrupt(10), counter, RISING); // Attach interrupt for rotary encoder
+    // Configure encoder pins
+    pinMode(LEFT_ENCODER_PIN, INPUT_PULLUP);
+    pinMode(RIGHT_ENCODER_PIN, INPUT_PULLUP);
+
+    // Initialize interrupts for encoders
+    attachPCINT(digitalPinToPCINT(LEFT_ENCODER_PIN), leftEncoderISR, CHANGE);
+    attachPCINT(digitalPinToPCINT(RIGHT_ENCODER_PIN), rightEncoderISR, CHANGE);
 }
 
 void MoveForward(int PWM) {
+    isMovingForward = true;
     analogWrite(FNA, PWM);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
@@ -66,71 +90,80 @@ void MoveForward(int PWM) {
 }
 
 void Stop() {
+    isMovingForward = false;
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, LOW);
+    // Reset total distance when stopping
+    totalDistance = 0;
+    Serial.println("Stopped - Distance reset to 0 cm");
 }
 
 void TurnLeft() {
+    isMovingForward = false;
     analogWrite(FNA, 255);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
     analogWrite(FNB, 255);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
+    // Reset total distance when turning
+    totalDistance = 0;
 }
 
 void TurnRight() {
+    isMovingForward = false;
     analogWrite(FNA, 255);
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
     analogWrite(FNB, 255);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
+    // Reset total distance when turning
+    totalDistance = 0;
 }
 
-// Rotary Encoder Interrupt Service Routine
-void counter() {
-    count_l++; // Increment counter on each rising edge
+void updateDistance() {
+    if (isMovingForward) {
+        // Calculate distance for each wheel
+        float leftDistance = (leftPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
+        float rightDistance = (rightPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
+        
+        // Update total distance with average of both wheels
+        totalDistance += (leftDistance + rightDistance) / 2.0;
+        
+        // Print distance information
+        Serial.print("Total Distance Traveled = ");
+        Serial.print(totalDistance);
+        Serial.println(" cm");
+    }
+    
+    // Reset pulse counters
+    leftPulses = 0;
+    rightPulses = 0;
 }
 
 void loop() {
-    // Read distances from ultrasonic sensors
+    // Read distance from front ultrasonic sensor
     int frontDistance = front.ping_cm();
-    int leftDistance = left.ping_cm();
-    int rightDistance = right.ping_cm();
 
-    // Display distances in serial monitor
+    // Update and display distance only while moving forward
+    updateDistance();
+
+    // Display front sensor distance
     Serial.print("Front Distance = ");
     Serial.print(frontDistance);
-    Serial.print(" cm | Left Distance = ");
-    Serial.print(leftDistance);
-    Serial.print(" cm | Right Distance = ");
-    Serial.print(rightDistance);
     Serial.println(" cm");
 
-    // Rotary Encoder Calculations
-    double var_1 = count_l / 20.0; // Convert counts to rotations
-    double var_2 = var_1 * 2 * 3.242 * 6.5; // Calculate distance traveled (example formula)
-    Serial.print("Distance Traveled = ");
-    Serial.print(var_2);
-    Serial.println(" cm");
-
-    // Obstacle Avoidance Logic
-    if (frontDistance > 10 || frontDistance == 0) { // Move forward if no obstacle in front
-        Serial.println("Moving forward");
-        MoveForward(150); // Set motor speed to 150
-    } else if (leftDistance > rightDistance) { // Turn left if more space on the left
-        Serial.println("Turning left");
-        TurnLeft();
-        delay(500); // Turn for a short duration
+    // Movement Logic
+    if (frontDistance > 10 || frontDistance == 0) {
+        // Keep moving forward
+        MoveForward(150);
+    } else {
+        // Stop when obstacle detected at 10cm
         Stop();
-    } else { // Turn right if more space on the right
-        Serial.println("Turning right");
-        TurnRight();
-        delay(500); // Turn for a short duration
-        Stop();
+        Serial.println("Obstacle detected! Stopping.");
     }
 
     delay(100); // Short delay for smoother operation
