@@ -171,19 +171,19 @@ void updateDistance() {
 
 void loop() {
     ////============================================================================================
-    // // Read distances from all three ultrasonic sensors
-    // float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    // float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-    // float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+    // Read distances from all three ultrasonic sensors
+    float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-    // // Display ultrasonic sensor readings
-    // Serial.print("Front: ");
-    // Serial.print(frontDistance);
-    // Serial.print(" cm | Left: ");
-    // Serial.print(leftDistance);
-    // Serial.print(" cm | Right: ");
-    // Serial.print(rightDistance);
-    // Serial.println(" cm");
+    // Display ultrasonic sensor readings
+    Serial.print("Front: ");
+    Serial.print(frontDistance);
+    Serial.print(" cm | Left: ");
+    Serial.print(leftDistance);
+    Serial.print(" cm | Right: ");
+    Serial.print(rightDistance);
+    Serial.println(" cm");
     ////===============================================================================================
 
     
