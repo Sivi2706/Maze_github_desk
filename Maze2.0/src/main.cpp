@@ -97,8 +97,8 @@ void MoveForward(int PWM) {
     if (!isMovingForward) {
         isMovingForward = true;
         analogWrite(FNA, PWM);
-        digitalWrite(IN1, LOW);
-        digitalWrite(IN2, HIGH);
+        digitalWrite(IN1, HIGH);
+        digitalWrite(IN2, LOW);
         analogWrite(FNB, PWM);
         digitalWrite(IN3, HIGH);
         digitalWrite(IN4, LOW);
@@ -115,7 +115,7 @@ void Stop() {
     Serial.println("Stopped - Left Distance: " + String(leftTotalDistance) + " cm | Right Distance: " + String(rightTotalDistance) + " cm");
 }
 
-void TurnRight() {
+void TurnLeft() {
     isMovingForward = false;
     analogWrite(FNA, 255);
     digitalWrite(IN1, HIGH);
@@ -125,11 +125,11 @@ void TurnRight() {
     digitalWrite(IN4, LOW);
 }
 
-void TurnLeft() {
+void TurnRight() {
     isMovingForward = false;
     analogWrite(FNA, 255);
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, HIGH);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
     analogWrite(FNB, 255);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
@@ -170,22 +170,32 @@ void updateDistance() {
 }
 
 void loop() {
-    ////============================================================================================
-    // Read distances from all three ultrasonic sensors
-    float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-    float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+    //============================================================================================
 
-    // Display ultrasonic sensor readings
-    Serial.print("Front: ");
-    Serial.print(frontDistance);
-    Serial.print(" cm | Left: ");
-    Serial.print(leftDistance);
-    Serial.print(" cm | Right: ");
-    Serial.print(rightDistance);
-    Serial.println(" cm");
-    ////===============================================================================================
+    // // Read distances from all three ultrasonic sensors
+    // float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    // float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    // float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
+    // // Display ultrasonic sensor readings
+    // Serial.print("Front: ");
+    // Serial.print(frontDistance);
+    // Serial.print(" cm | Left: ");
+    // Serial.print(leftDistance);
+    // Serial.print(" cm | Right: ");
+    // Serial.print(rightDistance);
+    // Serial.println(" cm");
     
+    //===============================================================================================
+
+    // Move forward indefinitely
+    TurnLeft();
+
+    // Update and display distance traveled by the wheels
+    updateDistance();
+
+    delay(150);  // Slightly longer delay for smoother readings
+
+    //===================================================================================================
 
 }
