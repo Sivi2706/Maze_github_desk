@@ -1,20 +1,17 @@
 #include <Arduino.h>
 #include <PinChangeInterrupt.h>
-#include "NewPing.h"
 
 // Ultrasonic Sensor Pins
-
-#define FRONT_TRIGGER_PIN A5
-#define FRONT_ECHO_PIN A4
+#define FRONT_TRIGGER_PIN A4
+#define FRONT_ECHO_PIN A5
 #define LEFT_TRIGGER_PIN A3
 #define LEFT_ECHO_PIN A2
-#define RIGHT_TRIGGER_PIN A1
-#define RIGHT_ECHO_PIN A0
-
+#define RIGHT_TRIGGER_PIN A0
+#define RIGHT_ECHO_PIN A1
 
 // Encoder pin definitions
-#define LEFT_ENCODER_PIN  7
-#define RIGHT_ENCODER_PIN 8
+#define LEFT_ENCODER_PIN 13  // Changed from on-board LED to rotary encoder
+#define RIGHT_ENCODER_PIN 12
 
 // Motor Pins
 #define IN1 2
@@ -23,16 +20,6 @@
 #define IN4 6
 #define FNA 3
 #define FNB 11
-
-// Maximum distance for ultrasonic sensors (in centimeters)
-#define MAX_DISTANCE 400
-
-
-// NewPing objects for each ultrasonic sensor
-NewPing front(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN, MAX_DISTANCE);
-NewPing left(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN, MAX_DISTANCE);
-NewPing right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
-
 
 // Target distance to travel (in centimeters)
 #define TARGET_DISTANCE 90.0
@@ -59,6 +46,28 @@ void rightEncoderISR() {
     rightPulses++;
 }
 
+// Ultrasonic Sensor Functions
+void ultrasonicSetup(int trigPin, int echoPin) {
+    pinMode(echoPin, INPUT);
+    pinMode(trigPin, OUTPUT);
+}
+
+// Return distance in cm
+float getDistance(int trigPin, int echoPin) {
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+
+    unsigned long duration = pulseIn(echoPin, HIGH);
+    if (duration == 0) {
+        Serial.println("Error: No echo received. Check sensor connections or object distance.");
+        return 0;  // Return 0 if no echo is received
+    }
+    return (duration * 0.034613 / 2.00);  // Convert pulse duration to distance in cm
+}
+
 void setup() {
     Serial.begin(9600);
 
@@ -77,6 +86,11 @@ void setup() {
     // Initialize interrupts for encoders
     attachPCINT(digitalPinToPCINT(LEFT_ENCODER_PIN), leftEncoderISR, CHANGE);
     attachPCINT(digitalPinToPCINT(RIGHT_ENCODER_PIN), rightEncoderISR, CHANGE);
+
+    // Initialize ultrasonic sensors
+    ultrasonicSetup(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    ultrasonicSetup(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 }
 
 void MoveForward(int PWM) {
@@ -156,16 +170,22 @@ void updateDistance() {
 }
 
 void loop() {
-    // Read distance from front ultrasonic sensor
-    int frontDistance = front.ping_cm();
+    ////============================================================================================
+    // // Read distances from all three ultrasonic sensors
+    // float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    // float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    // float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-    // Update and display distance only while moving forward
-    updateDistance();
+    // // Display ultrasonic sensor readings
+    // Serial.print("Front: ");
+    // Serial.print(frontDistance);
+    // Serial.print(" cm | Left: ");
+    // Serial.print(leftDistance);
+    // Serial.print(" cm | Right: ");
+    // Serial.print(rightDistance);
+    // Serial.println(" cm");
+    ////===============================================================================================
 
-    // Move forward if the target is not yet reached
-    if (!targetReached) {
-        MoveForward(150);
-    }
+    
 
-    delay(150);  // Slightly longer delay for smoother readings
 }
