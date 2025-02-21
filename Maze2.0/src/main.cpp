@@ -170,7 +170,7 @@ void updateDistance() {
 }
 
 void loop() {
-    //============================================================================================
+    //==========================ULTRASONIC SENSOR==================================================================
 
     // // Read distances from all three ultrasonic sensors
     // float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
@@ -186,15 +186,15 @@ void loop() {
     // Serial.print(rightDistance);
     // Serial.println(" cm");
     
-    //===============================================================================================
+    //===========================MOTOR CONTROL + ROTARY ENCODER====================================================================
 
-    // Move forward indefinitely
-    TurnLeft();
+    // // Move forward indefinitely
+    // TurnLeft();
 
-    // Update and display distance traveled by the wheels
-    updateDistance();
+    // // Update and display distance traveled by the wheels
+    // updateDistance();
 
-    delay(150);  // Slightly longer delay for smoother readings
+    // delay(150);  // Slightly longer delay for smoother readings
 
     //===================================================================================================
 
