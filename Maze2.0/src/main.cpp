@@ -2,6 +2,11 @@
 #include <PinChangeInterrupt.h>
 #include "NewPing.h"
 
+/*
+Improvements: 
+1. Implementing MPU to turn the car rather than using delay
+*/
+
 // Ultrasonic Sensor Pins
 
 #define FRONT_TRIGGER_PIN A5
@@ -27,15 +32,10 @@
 // Maximum distance for ultrasonic sensors (in centimeters)
 #define MAX_DISTANCE 400
 
-
 // NewPing objects for each ultrasonic sensor
 NewPing front(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN, MAX_DISTANCE);
 NewPing left(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN, MAX_DISTANCE);
 NewPing right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
-
-
-// Target distance to travel (in centimeters)
-#define TARGET_DISTANCE 90.0
 
 // Encoder and distance calculation variables
 volatile unsigned long leftPulses = 0;
@@ -47,17 +47,17 @@ const float WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
 // Separate distance tracking for each wheel
 float leftTotalDistance = 0.0;
 float rightTotalDistance = 0.0;
-bool isMovingForward = false;
+bool isMovingForward = false; //optional?
+int direction = 2; // 1 = left, 2 = front, 3 = right, 4 = 180 reverse
 bool targetReached = false;
 
-// Interrupt service routines for encoders
-void leftEncoderISR() {
-    leftPulses++;
-}
-
-void rightEncoderISR() {
-    rightPulses++;
-}
+void leftEncoderISR();
+void rightEncoderISR();
+void forward(int PWM);
+void stop();
+void left();
+void right();
+void reverse();
 
 void setup() {
     Serial.begin(9600);
@@ -79,93 +79,89 @@ void setup() {
     attachPCINT(digitalPinToPCINT(RIGHT_ENCODER_PIN), rightEncoderISR, CHANGE);
 }
 
-void MoveForward(int PWM) {
-    if (!isMovingForward) {
-        isMovingForward = true;
-        analogWrite(FNA, PWM);
-        digitalWrite(IN1, LOW);
-        digitalWrite(IN2, HIGH);
-        analogWrite(FNB, PWM);
-        digitalWrite(IN3, HIGH);
-        digitalWrite(IN4, LOW);
-        Serial.println("Moving Forward...");
-    }
+// Interrupt service routines for encoders
+void leftEncoderISR() {
+    leftPulses++;
 }
 
-void Stop() {
-    isMovingForward = false;
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, LOW);
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, LOW);
-    Serial.println("Stopped - Left Distance: " + String(leftTotalDistance) + " cm | Right Distance: " + String(rightTotalDistance) + " cm");
+void rightEncoderISR() {
+    rightPulses++;
 }
 
-void TurnRight() {
-    isMovingForward = false;
-    analogWrite(FNA, 255);
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
-    analogWrite(FNB, 255);
-    digitalWrite(IN3, HIGH);
-    digitalWrite(IN4, LOW);
-}
-
-void TurnLeft() {
-    isMovingForward = false;
-    analogWrite(FNA, 255);
+void forward(int PWM) {
+    analogWrite(FNA, PWM);
+    analogWrite(FNB, PWM);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    Serial.println("Moving Forwards");
+}
+
+void stop() {
+    analogWrite(FNA, 0);
+    analogWrite(FNB, 0);
+    Serial.println("Stop");
+}
+
+void right() {
+    analogWrite(FNA, 255);
     analogWrite(FNB, 255);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    Serial.println("Moving right");
+}
+
+void left() {
+    analogWrite(FNA, 255);
+    analogWrite(FNB, 255);
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
+    Serial.println("Moving left");
+}
+
+void reverse() { //instead of reversing, maybe should turn 180 and just move forwards 
+    analogWrite(FNA, 255);
+    analogWrite(FNB, 255);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    Serial.println("Reversing");
 }
 
 void updateDistance() {
-    if (isMovingForward) {
-        // Calculate distance for each wheel
-        float leftDistance = (leftPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
-        float rightDistance = (rightPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
-        
-        // Update total distance for each wheel
-        leftTotalDistance += leftDistance;
-        rightTotalDistance += rightDistance;
+    float leftDistance = (leftPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
+    float rightDistance = (rightPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
 
-        // Compute the average distance
-        float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
+    //check the direction that the car is moving and then decide if add or minus distance
+    //use the distance to determine if the car has moved up a 'block'
+    //can also use ultrasonic and distance together to make it more accurate
 
-        // Print distance information
-        Serial.print("Left: ");
-        Serial.print(leftTotalDistance);
-        Serial.print(" cm | Right: ");
-        Serial.print(rightTotalDistance);
-        Serial.print(" cm | Avg: ");
-        Serial.print(avgDistance);
-        Serial.println(" cm");
-
-        // Reset pulse counters
-        leftPulses = 0;
-        rightPulses = 0;
-
-        // Stop when the average distance reaches the target
-        if (avgDistance >= TARGET_DISTANCE && !targetReached) {
-            Stop();
-            targetReached = true;
-        }
-    }
-}
-
-void loop() {
-    // Read distance from front ultrasonic sensor
-    int frontDistance = front.ping_cm();
-
-    // Update and display distance only while moving forward
-    updateDistance();
-
-    // Move forward if the target is not yet reached
-    if (!targetReached) {
-        MoveForward(150);
+    float avgDistance = (leftTotalDistance + rightTotalDistance) / 2;
+    
+    if (direction == 4) {
+        leftTotalDistance -= avgDistance;
+        rightTotalDistance -= avgDistance;
+    } else {
+        leftTotalDistance += avgDistance;
+        rightTotalDistance += avgDistance;
     }
 
-    delay(150);  // Slightly longer delay for smoother readings
+    leftPulses = 0;
+    rightPulses = 0;
 }
+
+//why so hard ah this system
+/*oweirjwoeirjowiejroiwejr
+woeirjwoierjwoierjwoierjowierjoiwj
+woeirjweoirjwoeirjwoierjwoierjowierj
+woierjwoierjwoiejrwoeirjwoeirjwoierj
+woeirjwoeirjweoirjwoeirjweoirjwoierjwoeirjwoierjwoierj
+woeirjwoeirjwoeirjwoeirjwoierj
+weroijweorijweorijweorijweorijweorijweorijwoeirj
+weorijweorijweorijweorijweorijwoeirj*/
