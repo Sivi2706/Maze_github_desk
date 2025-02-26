@@ -1,306 +1,201 @@
-#include <Arduino.h>
-#include <PinChangeInterrupt.h>
-#include <Wire.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
-// Ultrasonic Sensor Pins
-#define FRONT_TRIGGER_PIN 10  // Changed to pin 10
-#define FRONT_ECHO_PIN 9      // Changed to pin 9
-#define LEFT_TRIGGER_PIN A3
-#define LEFT_ECHO_PIN A2
-#define RIGHT_TRIGGER_PIN A0
-#define RIGHT_ECHO_PIN A1
+// Structure to represent a cell in the maze
+typedef struct {
+    int row;
+    int col;
+} Cell;
 
-// Encoder pin definitions
-#define LEFT_ENCODER_PIN 13  // Changed from on-board LED to rotary encoder
-#define RIGHT_ENCODER_PIN 12
+// Structure to represent a node in the queue
+typedef struct QueueNode {
+    Cell cell;
+    struct QueueNode* next;
+} QueueNode;
 
-// Motor Pins
-#define IN1 2
-#define IN2 4
-#define IN3 5
-#define IN4 6
-#define FNA 3
-#define FNB 11
+// Structure for the queue
+typedef struct {
+    QueueNode* front;
+    QueueNode* rear;
+} Queue;
 
-// Target distance to travel (in centimeters)
-#define TARGET_DISTANCE 90.0
-
-// Encoder and distance calculation variables
-volatile unsigned long leftPulses = 0;
-volatile unsigned long rightPulses = 0;
-const unsigned int PULSES_PER_TURN = 20;
-const float WHEEL_DIAMETER = 4;  // in cm
-const float WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
-
-// Separate distance tracking for each wheel
-float leftTotalDistance = 0.0;
-float rightTotalDistance = 0.0;
-bool isMovingForward = false;
-bool targetReached = false;
-
-// Interrupt service routines for encoders
-void leftEncoderISR() {
-    leftPulses++;
-}
-
-void rightEncoderISR() {
-    rightPulses++;
-}
-
-// Ultrasonic Sensor Functions
-void ultrasonicSetup(int trigPin, int echoPin) {
-    pinMode(echoPin, INPUT);
-    pinMode(trigPin, OUTPUT);
-}
-
-// MPU6050 I2C address
-const int MPU = 0x68;
-
-// Gyro scale factor
-const float GYRO_SCALE = 1.0 / 131.0;
-
-// Variables to hold gyro outputs
-float gyroX, gyroY, gyroZ;
-
-// Variables to hold errors for calibration
-float GyroErrorX, GyroErrorY, GyroErrorZ;
-
-// Variables to hold angles
-float roll, pitch, yaw;
-
-// Timing variables
-float elapsedTime, previousTime, currentTime;
-
-// Function to read raw gyro data from MPU6050
-void getOrientation() {
-    Wire.beginTransmission(MPU);
-    Wire.write(0x43); // Start reading from register 0x43 (GYRO_XOUT_H)
-    Wire.endTransmission(false);
-    Wire.requestFrom(MPU, 6, true); // Read 6 bytes (2 bytes per axis)
-
-    // Read raw gyro data for X, Y, and Z axes
-    gyroX = (Wire.read() << 8 | Wire.read()) * GYRO_SCALE; // X-axis
-    gyroY = (Wire.read() << 8 | Wire.read()) * GYRO_SCALE; // Y-axis
-    gyroZ = (Wire.read() << 8 | Wire.read()) * GYRO_SCALE; // Z-axis
-}
-
-// Function to calculate gyro errors for calibration
-void calculateError() {
-    byte c = 0;
-    GyroErrorX = 0;
-    GyroErrorY = 0;
-    GyroErrorZ = 0;
-
-    // Read gyro values 200 times and accumulate errors
-    while (c < 200) {
-        getOrientation();
-        GyroErrorX += gyroX;
-        GyroErrorY += gyroY;
-        GyroErrorZ += gyroZ;
-        c++;
+// Function to create a new queue
+Queue* createQueue() {
+    Queue* q = (Queue*)malloc(sizeof(Queue));
+    if (!q) {
+        perror("Failed to allocate memory for queue");
+        exit(EXIT_FAILURE);
     }
-
-    // Calculate average error for each axis
-    GyroErrorX = GyroErrorX / 200;
-    GyroErrorY = GyroErrorY / 200;
-    GyroErrorZ = GyroErrorZ / 200;
-
-    Serial.println("Gyroscope calibration complete.");
+    q->front = q->rear = NULL;
+    return q;
 }
 
-// MPU6050 setup function
-void mpuSetup() {
-    Wire.begin();                      // Initialize I2C communication
-    Wire.beginTransmission(MPU);       // Start communication with MPU6050
-    Wire.write(0x6B);                  // Talk to the PWR_MGMT_1 register (6B)
-    Wire.write(0x00);                  // Reset the MPU6050
-    Wire.endTransmission(true);        // End the transmission
-
-    // Calibrate the gyroscope
-    calculateError();
+// Function to check if the queue is empty
+bool isEmpty(Queue* q) {
+    return q->front == NULL;
 }
 
-// Function to update roll, pitch, and yaw angles
-void updateMPU() {
-    // Calculate elapsed time
-    previousTime = currentTime;
-    currentTime = millis();
-    elapsedTime = (currentTime - previousTime) * 0.001; // Convert to seconds
+// Function to enqueue a cell
+void enqueue(Queue* q, Cell cell) {
+    QueueNode* newNode = (QueueNode*)malloc(sizeof(QueueNode));
+    if (!newNode) {
+        perror("Failed to allocate memory for queue node");
+        exit(EXIT_FAILURE);
+    }
+    newNode->cell = cell;
+    newNode->next = NULL;
 
-    // Read gyro data
-    getOrientation();
-
-    // Correct gyro outputs with calculated error values
-    gyroX -= GyroErrorX;
-    gyroY -= GyroErrorY;
-    gyroZ -= GyroErrorZ;
-
-    // Calculate angles for roll, pitch, and yaw
-    roll += gyroX * elapsedTime;
-    pitch += gyroY * elapsedTime;
-    yaw += gyroZ * elapsedTime;
-
-    // Round angles to 1 decimal place
-    roll = round(roll * 10) / 10.0;
-    pitch = round(pitch * 10) / 10.0;
-    yaw = round(yaw * 10) / 10.0;
-}
-
-void setup() {
-    Serial.begin(9600);
-
-    // Motor Pin Setup
-    pinMode(IN1, OUTPUT);
-    pinMode(IN2, OUTPUT);
-    pinMode(IN3, OUTPUT);
-    pinMode(IN4, OUTPUT);
-    pinMode(FNA, OUTPUT);
-    pinMode(FNB, OUTPUT);
-
-    // Configure encoder pins
-    pinMode(LEFT_ENCODER_PIN, INPUT_PULLUP);
-    pinMode(RIGHT_ENCODER_PIN, INPUT_PULLUP);
-
-    // Initialize interrupts for encoders
-    attachPCINT(digitalPinToPCINT(LEFT_ENCODER_PIN), leftEncoderISR, CHANGE);
-    attachPCINT(digitalPinToPCINT(RIGHT_ENCODER_PIN), rightEncoderISR, CHANGE);
-
-    // Initialize ultrasonic sensors
-    ultrasonicSetup(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    ultrasonicSetup(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-    ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
-
-    // Initialize MPU6050
-    mpuSetup();
-}
-
-void MoveForward(int PWM) {
-    if (!isMovingForward) {
-        isMovingForward = true;
-        analogWrite(FNA, PWM);
-        digitalWrite(IN1, HIGH);
-        digitalWrite(IN2, LOW);
-        analogWrite(FNB, PWM);
-        digitalWrite(IN3, HIGH);
-        digitalWrite(IN4, LOW);
-        Serial.println("Moving Forward...");
+    if (isEmpty(q)) {
+        q->front = q->rear = newNode;
+    } else {
+        q->rear->next = newNode;
+        q->rear = newNode;
     }
 }
 
-void Stop() {
-    isMovingForward = false;
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, LOW);
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, LOW);
-    Serial.println("Stopped - Left Distance: " + String(leftTotalDistance) + " cm | Right Distance: " + String(rightTotalDistance) + " cm");
+// Function to dequeue a cell
+Cell dequeue(Queue* q) {
+    if (isEmpty(q)) {
+        fprintf(stderr, "Error: Attempting to dequeue from an empty queue\n");
+        exit(EXIT_FAILURE); // Or handle the error as appropriate
+    }
+
+    QueueNode* temp = q->front;
+    Cell cell = temp->cell;
+    q->front = q->front->next;
+
+    if (q->front == NULL) {
+        q->rear = NULL; // Queue is now empty
+    }
+
+    free(temp);
+    return cell;
 }
 
-void TurnLeft() {
-    isMovingForward = false;
-    analogWrite(FNA, 255);
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
-    analogWrite(FNB, 255);
-    digitalWrite(IN3, HIGH);
-    digitalWrite(IN4, LOW);
+// Function to free the queue
+void freeQueue(Queue* q) {
+  while (!isEmpty(q)) {
+        dequeue(q);
+    }
+    free(q);
 }
 
-void TurnRight() {
-    isMovingForward = false;
-    analogWrite(FNA, 255);
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
-    analogWrite(FNB, 255);
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, HIGH);
+
+// Function to check if a cell is valid (within bounds and not a wall)
+bool isValid(int rows, int cols, char maze[rows][cols], int r, int c, bool visited[rows][cols]) {
+    return (r >= 0 && r < rows && c >= 0 && c < cols && maze[r][c] != '#' && !visited[r][c]);
 }
 
-void updateDistance() {
-    if (isMovingForward) {
-        // Calculate distance for each wheel
-        float leftDistance = (leftPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
-        float rightDistance = (rightPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
-        
-        // Update total distance for each wheel
-        leftTotalDistance += leftDistance;
-        rightTotalDistance += rightDistance;
+// Function to reconstruct the path
+void reconstructPath(Cell came_from[][5], Cell start, Cell end, Cell path[], int *path_len) { // Fixed dimensions for simplicity
+    Cell current = end;
+    *path_len = 0;
 
-        // Compute the average distance
-        float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
-
-        // Print distance information
-        Serial.print("Left: ");
-        Serial.print(leftTotalDistance);
-        Serial.print(" cm | Right: ");
-        Serial.print(rightTotalDistance);
-        Serial.print(" cm | Avg: ");
-        Serial.print(avgDistance);
-        Serial.println(" cm");
-
-        // Reset pulse counters
-        leftPulses = 0;
-        rightPulses = 0;
-
-        // Stop when the average distance reaches the target
-        if (avgDistance >= TARGET_DISTANCE && !targetReached) {
-            Stop();
-            targetReached = true;
+     while (current.row != start.row || current.col != start.col) {
+        path[(*path_len)++] = current;
+        current = came_from[current.row][current.col];
+        if(*path_len > 25)
+        {
+            printf("Infinite loop detected.\n"); //Just to prevent unexpected infinite loop
+            exit(1);
         }
     }
-}
-
-// Return distance in cm
-float getDistance(int trigPin, int echoPin) {
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-
-    unsigned long duration = pulseIn(echoPin, HIGH);
-    if (duration == 0) {
-        Serial.println("Error: No echo received. Check sensor connections or object distance.");
-        return 0;  // Return 0 if no echo is received
+    path[(*path_len)++] = start; // Add start cell.
+   
+    // Reverse the path
+    for (int i = 0; i < *path_len / 2; i++) {
+        Cell temp = path[i];
+        path[i] = path[*path_len - 1 - i];
+        path[*path_len - 1 - i] = temp;
     }
-    return (duration * 0.034613 / 2.00);  // Convert pulse duration to distance in cm
 }
 
-void loop() {
-    //==========================ULTRASONIC SENSOR=========================================================
-    // // Read distances from all three ultrasonic sensors
-    // float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    // float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-    // float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+// BFS function to solve the maze
+bool solveMaze(int rows, int cols, char maze[rows][cols], Cell start, Cell end) {
+    Queue* q = createQueue();
+    bool visited[rows][cols];  // Keep track of visited cells
+    Cell came_from[rows][cols]; //Keep track of where you came from
 
-    // // Display ultrasonic sensor readings
-    // Serial.print("Front: ");
-    // Serial.print(frontDistance);
-    // Serial.print(" cm | Left: ");
-    // Serial.print(leftDistance);
-    // Serial.print(" cm | Right: ");
-    // Serial.print(rightDistance);
-    // Serial.println(" cm");
+    // Initialize visited array
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            visited[i][j] = false;
+        }
+    }
 
-    //===========================MOTOR CONTROL + ROTARY ENCODER===========================================
+    // Enqueue the starting cell and mark it as visited
+    enqueue(q, start);
+    visited[start.row][start.col] = true;
+    came_from[start.row][start.col] = (Cell){-1, -1}; // Indicate start
 
-    // MoveForward(150);
+    while (!isEmpty(q)) {
+        Cell current = dequeue(q);
 
-    //// Update and display distance traveled by the wheels
-    // updateDistance();
+        // Check if we've reached the end
+        if (current.row == end.row && current.col == end.col) {
+            
+            Cell path[rows * cols]; // Maximum possible path length
+            int path_len;
+            reconstructPath(came_from, start, end, path, &path_len);
+            printf("Path found:\n");
+            for (int i = 0; i < path_len; i++) {
+                printf("(%d, %d) ", path[i].row, path[i].col);
+                 if (maze[path[i].row][path[i].col] != 'S' && maze[path[i].row][path[i].col] != 'E') {
+                    maze[path[i].row][path[i].col] = '*'; // Mark on the maze
+                }
+            }
+            printf("\n");
 
-    //===============================MPU-6050==============================================================
-    // Update MPU6050 angles
-    updateMPU();
+             // Print the maze with the path marked
+            for (int i = 0; i < rows; i++) {
+                for (int j = 0; j < cols; j++) {
+                    printf("%c", maze[i][j]);
+                }
+                printf("\n");
+            }
+            freeQueue(q);
+            return true; // Path found
+        }
 
-    // Print MPU6050 angles
-    Serial.print("Roll: ");
-    Serial.print(roll);
-    Serial.print("° | Pitch: ");
-    Serial.print(pitch);
-    Serial.print("° | Yaw: ");
-    Serial.print(yaw);
-    Serial.println("°");
+        // Explore neighbors (up, down, left, right)
+        int dr[] = {-1, 1, 0, 0};  // Row offsets
+        int dc[] = {0, 0, -1, 1};  // Column offsets
 
-    delay(150);  // Slightly longer delay for smoother readings
+        for (int i = 0; i < 4; i++) {
+            int nr = current.row + dr[i];
+            int nc = current.col + dc[i];
+
+            if (isValid(rows, cols, maze, nr, nc, visited)) {
+                Cell next_cell = {nr, nc};
+                enqueue(q, next_cell);
+                visited[nr][nc] = true;
+                came_from[nr][nc] = current;
+            }
+        }
+    }
+    freeQueue(q);
+    return false; // No path found
+}
+
+int main() {
+    // Example maze (same as before, but as a 2D char array)
+     char maze[][5] = {
+        {'S', '.', '.', '.', '#'},
+        {'.', '.', '.', '.', '#'},
+        {'.', '#', '.', '.', '.'},
+        {'#', '.', '.', '.', '.'},
+        {'.', '.', '.', '#', 'E'}
+    };
+    int rows = 5;
+    int cols = 5;
+
+    Cell start = {0, 0}; // Starting cell
+    Cell end = {4, 4};   // Ending cell
+
+    if (!solveMaze(rows, cols, maze, start, end)) {
+        printf("No path found.\n");
+    }
+
+    return 0;
 }
