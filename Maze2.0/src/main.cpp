@@ -23,13 +23,13 @@
 #define FNB 11
 
 // Target distance to travel (in centimeters)
-#define TARGET_DISTANCE 90.0
+#define TARGET_DISTANCE 25.0 //(in cm)
 
 // Encoder and distance calculation variables
 volatile unsigned long leftPulses = 0;
 volatile unsigned long rightPulses = 0;
 const unsigned int PULSES_PER_TURN = 20;
-const float WHEEL_DIAMETER = 4.0;
+const float WHEEL_DIAMETER = 4;
 const float WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
 
 // Distance tracking
@@ -125,11 +125,11 @@ void updateMPU() {
 void MoveForward(int PWM) {
     isMovingForward = true;  // Fixed: Was using undefined variable 'forward'
     analogWrite(FNA, PWM);
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, HIGH);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
     analogWrite(FNB, PWM);
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, HIGH);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
     Serial.println("Moving Forward...");  // Added feedback message
 }
 
@@ -204,55 +204,87 @@ void loop() {
 
      //===========================MOTOR CONTROL + ROTARY ENCODER===========================================
 
-    //Move forward for 25 cm
-    if (!targetReached) {  // Added check to prevent continuous movement after target is reached
-        MoveForward(150);
-    }
+    // //Move forward for 25 cm
+    // if (!targetReached) {  // Added check to prevent continuous movement after target is reached
+    //     MoveForward(255);
+    // }
 
-    // Update and display distance traveled by the wheels
-    updateDistance();
+    // // Update and display distance traveled by the wheels
+    // updateDistance();
 
-    // Calculate RPM
-    calculateRPM();
+    // // Calculate RPM
+    // calculateRPM();
 
-    // Display data for Serial Plotter (comma-separated values)
-    Serial.print("LeftRaw:");
-    Serial.print(digitalRead(LEFT_ENCODER_PIN));
-    Serial.print(",RightRaw:");
-    Serial.print(digitalRead(RIGHT_ENCODER_PIN));
-    Serial.print(",LeftRPM:");
-    Serial.print(leftRPM);
-    Serial.print(",RightRPM:");
-    Serial.println(rightRPM); // Use println for the last value to end the line
+    // // Display data for Serial Plotter (comma-separated values)
+    // Serial.print("LeftRaw:");
+    // Serial.print(digitalRead(LEFT_ENCODER_PIN));
+    // Serial.print(",RightRaw:");
+    // Serial.print(digitalRead(RIGHT_ENCODER_PIN));
+    // Serial.print(",LeftRPM:");
+    // Serial.print(leftRPM);
+    // Serial.print(",RightRPM:");
+    // Serial.println(rightRPM); // Use println for the last value to end the line
 
-    // Display data for Serial Monitor (text-based)
-    Serial.print("Left Distance: ");
-    Serial.print(leftTotalDistance);
-    Serial.print(" cm | Right Distance: ");
-    Serial.print(rightTotalDistance);
-    Serial.print(" cm | Avg Distance: ");
-    Serial.print((leftTotalDistance + rightTotalDistance) / 2.0);
-    Serial.println(" cm");
+    // // Display data for Serial Monitor (text-based)
+    // Serial.print("Left Distance: ");
+    // Serial.print(leftTotalDistance);
+    // Serial.print(" cm | Right Distance: ");
+    // Serial.print(rightTotalDistance);
+    // Serial.print(" cm | Avg Distance: ");
+    // Serial.print((leftTotalDistance + rightTotalDistance) / 2.0);
+    // Serial.println(" cm");
 
-    // Stop when the target distance is reached
-    if ((leftTotalDistance + rightTotalDistance) / 2.0 >= 25.0 && !targetReached) {
-        stopMotors();
-        targetReached = true;
-    }
+    // // Stop when the target distance is reached
+    // if ((leftTotalDistance + rightTotalDistance) / 2.0 >= 25.0 && !targetReached) {
+    //     stopMotors();
+    //     targetReached = true;
+    // }
+
+    //===============================25cm===================================================================
+    // if (!isMovingForward && !targetReached) {
+    //     // Reset distance counters before movement starts
+    //     leftTotalDistance = 0.0;
+    //     rightTotalDistance = 0.0;
+    //     targetReached = false;
+
+    //     // Start moving
+    //     MoveForward(100);
+    // }
+
+    // // Update distance traveled
+    // updateDistance();
+
+    // // Check if the car has reached exactly 25 cm
+    // float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
+    // if (avgDistance >= 25.0 && !targetReached) {
+    //     stopMotors();
+    //     targetReached = true;
+    // }
+
+    // // Print distance values for debugging
+    // Serial.print("Left Distance: ");
+    // Serial.print(leftTotalDistance);
+    // Serial.print(" cm | Right Distance: ");
+    // Serial.print(rightTotalDistance);
+    // Serial.print(" cm | Avg Distance: ");
+    // Serial.print(avgDistance);
+    // Serial.println(" cm");
+
+    // delay(10);  // Small delay to ensure smooth execution
 
     //===============================MPU-6050==============================================================
 
-    // // Update MPU6050 angles
-    // updateMPU();
+//     // Update MPU6050 angles
+//     updateMPU();
 
-    // // Print MPU6050 angles
-    // Serial.print("Roll: ");
-    // Serial.print(roll);
-    // Serial.print("° | Pitch: ");
-    // Serial.print(pitch);
-    // Serial.print("° | Yaw: "); //(Turning angle) negative for right turn and positive for left hand turn 
-    // Serial.print(yaw);
-    // Serial.println("°");
+//     // Print MPU6050 angles
+//     Serial.print("Roll: ");
+//     Serial.print(roll);
+//     Serial.print("° | Pitch: ");
+//     Serial.print(pitch);
+//     Serial.print("° | Yaw: "); //(Turning angle) negative for right turn and positive for left hand turn 
+//     Serial.print(yaw);
+//     Serial.println("°");
 
-   delay(100);  // Added delay for stability
+//    delay(100);  // Added delay for stability
 }
