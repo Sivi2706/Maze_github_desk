@@ -19,7 +19,7 @@ Improvements:
 
 
 // Encoder pin definitions
-#define LEFT_ENCODER_PIN  7
+#define LEFT_ENCODER_PIN 7
 #define RIGHT_ENCODER_PIN 8
 
 // Motor Pins
@@ -47,11 +47,18 @@ const float WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
 float leftTotalDistance = 0.0;
 float rightTotalDistance = 0.0; //could add a more accurate total distance combining ultrasonic
 float initialUltrasonic = 0.0;
-float stuckUltrasonic = 0.0;
 float accurateDistance = 0.0; //including both rotary encoder and ultrasonic
 bool isMoving = false;
 int direction = 2; // 1 = left, 2 = front, 3 = right, 4 = 180 reverse
 bool targetReached = false;
+
+// Check if car is stuck
+float ultrasonicDistance = 0;
+
+// Check the surroundings of the car
+bool leftOpening = false;
+bool frontOpening = false;
+bool rightOpening = false; 
 
 void leftEncoderISR();
 void rightEncoderISR();
@@ -64,6 +71,11 @@ void updateDistance();
 float ultrasonicPulse(int trigPin, int echoPin);
 void initialUltrasonicDistance();
 void checkUltrasonicDistance();
+
+struct Position {
+    int x;
+    int y;
+}; //coordinates of each cell in the maze
 
 void setup() {
     Serial.begin(115200);
@@ -207,15 +219,32 @@ void checkSurroundings() {
     float leftDistance = ultrasonicPulse(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
     float rightDistance = ultrasonicPulse(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-    
+    if (leftDistance > 25) leftOpening = true;
+    if (frontDistance > 25) frontOpening = true;
+    if (rightDistance > 25) rightOpening = true;
 }
 
 bool checkStuck() {
     if (isMoving) {
-        float time = ultrasonicPulse(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-        float delta = checkStuck - time;
-        if (delta < 0.1 && delta > -0.1) return true;
-        return false;
+        float distanceNow = ultrasonicPulse(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+        float distanceDelta = ultrasonicDistance - distanceNow;
+
+        ultrasonicDistance = distanceNow;
+        
+        if (distanceDelta > 0.1 || distanceDelta < -0.1) return false;
+        return true
+    }
+}
+
+void explore() {
+    int maze[8][8] = {};
+
+    Position current = {0, 0};
+
+    Position explored[64] = {current};
+
+    while (1) {
+        checkSurroundings(); //check if there are openings around it
     }
 }
 
@@ -232,8 +261,8 @@ void djisktra() {
 
 void loop() {
     initialUltrasonicDistance(); //set initial ultrasonic distance
-    if (isMoving) {
-        if ultrasonicPulse
+    if (checkStuck()) {
+        reverse(); //if the car is stuck, reverse
     }
     //...do stuff
     checkUltrasonicDistance();
