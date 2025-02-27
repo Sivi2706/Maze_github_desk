@@ -122,6 +122,80 @@ void updateMPU() {
     yaw += gyroZ * elapsedTime;
 }
 
+// Turn functions using MPU6050 yaw readings
+void turnRight90() {
+    float initialYaw = yaw;
+    float targetYaw = initialYaw - 90.0;  // For right turn, decrease yaw by 90 degrees
+    
+    Serial.println("Turning right 90 degrees...");
+    Serial.print("Initial Yaw: ");
+    Serial.print(initialYaw);
+    Serial.print(" | Target Yaw: ");
+    Serial.println(targetYaw);
+    
+    // Start turning right
+    analogWrite(FNA, 100);  // Left motor forward
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    analogWrite(FNB, 100);  // Right motor backward
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    
+    // Continue turning until we reach the target yaw
+    while (yaw > targetYaw) {
+        updateMPU();  // Update MPU readings
+        
+        // Print current yaw for debugging
+        Serial.print("Current Yaw: ");
+        Serial.print(yaw);
+        Serial.print(" | Target: ");
+        Serial.println(targetYaw);
+        
+        delay(10);  // Small delay for stability
+    }
+    
+    // Stop motors once we've reached the target
+    stopMotors();
+    Serial.println("Right turn complete.");
+}
+
+void turnLeft90() {
+    float initialYaw = yaw;
+    float targetYaw = initialYaw + 90.0;  // For left turn, increase yaw by 90 degrees
+    
+    Serial.println("Turning left 90 degrees...");
+    Serial.print("Initial Yaw: ");
+    Serial.print(initialYaw);
+    Serial.print(" | Target Yaw: ");
+    Serial.println(targetYaw);
+    
+    // Start turning left
+    analogWrite(FNA, 100);  // Left motor backward
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(FNB, 100);  // Right motor forward
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    
+    // Continue turning until we reach the target yaw
+    while (yaw < targetYaw) {
+        updateMPU();  // Update MPU readings
+        
+        // Print current yaw for debugging
+        Serial.print("Current Yaw: ");
+        Serial.print(yaw);
+        Serial.print(" | Target: ");
+        Serial.println(targetYaw);
+        
+        delay(10);  // Small delay for stability
+    }
+    
+    // Stop motors once we've reached the target
+    stopMotors();
+    Serial.println("Left turn complete.");
+}
+
+
 void MoveForward(int PWM) {
     isMovingForward = true;  // Fixed: Was using undefined variable 'forward'
     analogWrite(FNA, PWM);
@@ -159,7 +233,7 @@ void updateDistance() {
 }
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
     pinMode(IN1, OUTPUT);
     pinMode(IN2, OUTPUT);
     pinMode(IN3, OUTPUT);
@@ -187,7 +261,7 @@ void setup() {
 }
 
 void loop() {
-    //==========================ULTRASONIC SENSOR=========================================================
+//==========================ULTRASONIC SENSOR=========================================================
     // // Read distances from all three ultrasonic sensors
     // float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
     // float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
@@ -202,7 +276,7 @@ void loop() {
     // Serial.print(rightDistance);
     // Serial.println(" cm");
 
-     //===========================MOTOR CONTROL + ROTARY ENCODER===========================================
+//===========================MOTOR CONTROL + ROTARY ENCODER===========================================
 
     // //Move forward for 25 cm
     // if (!targetReached) {  // Added check to prevent continuous movement after target is reached
@@ -240,7 +314,8 @@ void loop() {
     //     targetReached = true;
     // }
 
-    //===============================25cm===================================================================
+//===============================25cm===================================================================
+
     // if (!isMovingForward && !targetReached) {
     //     // Reset distance counters before movement starts
     //     leftTotalDistance = 0.0;
@@ -272,19 +347,47 @@ void loop() {
 
     // delay(10);  // Small delay to ensure smooth execution
 
-    //===============================MPU-6050==============================================================
+//===============================MPU-6050==============================================================
 
-//     // Update MPU6050 angles
-//     updateMPU();
+    //     // Update MPU6050 angles
+    //     updateMPU();
 
-//     // Print MPU6050 angles
-//     Serial.print("Roll: ");
-//     Serial.print(roll);
-//     Serial.print("° | Pitch: ");
-//     Serial.print(pitch);
-//     Serial.print("° | Yaw: "); //(Turning angle) negative for right turn and positive for left hand turn 
-//     Serial.print(yaw);
-//     Serial.println("°");
+    //     // Print MPU6050 angles
+    //     Serial.print("Roll: ");
+    //     Serial.print(roll);
+    //     Serial.print("° | Pitch: ");
+    //     Serial.print(pitch);
+    //     Serial.print("° | Yaw: "); //(Turning angle) negative for right turn and positive for left hand turn 
+    //     Serial.print(yaw);
+    //     Serial.println("°");
 
-//    delay(100);  // Added delay for stability
+    //    delay(100);  // Added delay for stability
+
+//=================================90 RIGHT & LEFT============================================================
+    // // Update MPU6050 angles
+    // updateMPU();
+    
+    // // Only print yaw for turning reference
+    // Serial.print("Yaw: ");
+    // Serial.print(yaw);
+    // Serial.println("°");
+    
+    // // Static variable to ensure the turn only happens once
+    // static bool turnCompleted = false;
+    
+    // // Turn left 90 degrees once, then stop
+    // if (!turnCompleted) {
+    //     turnRight90();  // This function already stops the motors after turning
+    //     turnLeft90();
+    //     turnCompleted = true;
+    //     Serial.println("Turn and stop sequence completed");
+    // }
+    
+    // // Keep updating distance if moving forward
+    // if (isMovingForward) {
+    //     updateDistance();
+    // }
+    
+    // delay(50);  // Smaller delay for more responsive command detection
+
 }
