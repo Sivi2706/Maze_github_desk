@@ -23,6 +23,12 @@ private:
     Cell start, end;
 
 public:
+    /**
+     C-style arrays cannot be directly assigned in a constructor initializer list like maze(maze). 
+    Unlike std::vector, which can be copied directly, a C-style array decays into a pointer, 
+    meaning maze(maze) doesn’t work as expected. Instead, you need to copy the contents of the array manually.
+    * for C-style arrays, nested for loops are needed to copy the values
+    */
     MazeSolver(vector<vector<char> > maze, Cell start, Cell end) : maze(maze), start(start), end(end) 
     {
         visited.resize(ROWS, vector<bool>(COLS, false));
@@ -122,6 +128,7 @@ int main()
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
+    //vector<vector<char> > maze = 
     vector<vector<char> > maze = 
     {
         {'S', '.', '.', '.', '#'},
@@ -149,6 +156,7 @@ int main()
 
     // Display the execution time
     std::cout << "BFS Execution Time: " << elapsed_time.count() << " seconds" << std::endl;
+    // fastest: 0.000114208 seconds
 
     return 0;
 }
