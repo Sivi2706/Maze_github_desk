@@ -1,10 +1,11 @@
 #include <Arduino.h>
 #include <PinChangeInterrupt.h>
-#include "NewPing.h"
+#include <MPU6050_tockn>
 
 /*
 Improvements: 
 1. Implementing MPU to turn the car rather than using delay
+2. Stuck detection - When rotary encoder is increasing but no change to ultrasonic distance, the car is stuck
 */
 
 // Ultrasonic Sensor Pins
@@ -32,10 +33,8 @@ Improvements:
 // Maximum distance for ultrasonic sensors (in centimeters)
 #define MAX_DISTANCE 400
 
-// NewPing objects for each ultrasonic sensor
-NewPing front(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN, MAX_DISTANCE);
-NewPing left(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN, MAX_DISTANCE);
-NewPing right(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN, MAX_DISTANCE);
+//IMPORTANT VARIABLES TO BE DEFINED
+int initial_point[2] = {0, 0};
 
 // Encoder and distance calculation variables
 volatile unsigned long leftPulses = 0;
@@ -46,8 +45,11 @@ const float WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
 
 // Separate distance tracking for each wheel
 float leftTotalDistance = 0.0;
-float rightTotalDistance = 0.0;
-bool isMovingForward = false; //optional?
+float rightTotalDistance = 0.0; //could add a more accurate total distance combining ultrasonic
+float initialUltrasonic = 0.0;
+float stuckUltrasonic = 0.0;
+float accurateDistance = 0.0; //including both rotary encoder and ultrasonic
+bool isMoving = false;
 int direction = 2; // 1 = left, 2 = front, 3 = right, 4 = 180 reverse
 bool targetReached = false;
 
@@ -58,9 +60,13 @@ void stop();
 void left();
 void right();
 void reverse();
+void updateDistance();
+float ultrasonicPulse(int trigPin, int echoPin);
+void initialUltrasonicDistance();
+void checkUltrasonicDistance();
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
 
     // Motor Pin Setup
     pinMode(IN1, OUTPUT);
@@ -75,8 +81,8 @@ void setup() {
     pinMode(RIGHT_ENCODER_PIN, INPUT_PULLUP);
 
     // Initialize interrupts for encoders
-    attachPCINT(digitalPinToPCINT(LEFT_ENCODER_PIN), leftEncoderISR, CHANGE);
-    attachPCINT(digitalPinToPCINT(RIGHT_ENCODER_PIN), rightEncoderISR, CHANGE);
+    attachInterrupt(digitalPinToPCINT(LEFT_ENCODER_PIN), leftEncoderISR, CHANGE);
+    attachInterrupt(digitalPinToPCINT(RIGHT_ENCODER_PIN), rightEncoderISR, CHANGE);
 }
 
 // Interrupt service routines for encoders
@@ -89,6 +95,8 @@ void rightEncoderISR() {
 }
 
 void forward(int PWM) {
+    direction = 2;
+    isMoving = true;
     analogWrite(FNA, PWM);
     analogWrite(FNB, PWM);
     digitalWrite(IN1, LOW);
@@ -98,13 +106,9 @@ void forward(int PWM) {
     Serial.println("Moving Forwards");
 }
 
-void stop() {
-    analogWrite(FNA, 0);
-    analogWrite(FNB, 0);
-    Serial.println("Stop");
-}
-
 void right() {
+    direction = 3;
+    isMoving = true;
     analogWrite(FNA, 255);
     analogWrite(FNB, 255);
     digitalWrite(IN1, HIGH);
@@ -115,6 +119,8 @@ void right() {
 }
 
 void left() {
+    direction = 1;
+    isMoving = true;
     analogWrite(FNA, 255);
     analogWrite(FNB, 255);
     digitalWrite(IN1, LOW);
@@ -125,13 +131,24 @@ void left() {
 }
 
 void reverse() { //instead of reversing, maybe should turn 180 and just move forwards 
+    /*Problem is when car turns 180, when it starts moving forwards direction = 1 and the distance would be added again
+    */
+    direction = 4;
+    isMoving = true;
     analogWrite(FNA, 255);
     analogWrite(FNB, 255);
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
-    Serial.println("Reversing");
+    Serial.println("Reversing"); 
+}
+
+void stop() {
+    isMoving = false;
+    analogWrite(FNA, 0);
+    analogWrite(FNB, 0);
+    Serial.println("Stop");
 }
 
 void updateDistance() {
@@ -156,12 +173,79 @@ void updateDistance() {
     rightPulses = 0;
 }
 
-//why so hard ah this system
-/*oweirjwoeirjowiejroiwejr
-woeirjwoierjwoierjwoierjowierjoiwj
-woeirjweoirjwoeirjwoierjwoierjowierj
-woierjwoierjwoiejrwoeirjwoeirjwoierj
-woeirjwoeirjweoirjwoeirjweoirjwoierjwoeirjwoierjwoierj
-woeirjwoeirjwoeirjwoeirjwoierj
-weroijweorijweorijweorijweorijweorijweorijwoeirj
-weorijweorijweorijweorijweorijwoeirj*/
+void checkMPU() {
+    //stuff
+}
+
+float ultrasonicPulse(int trigPin, int echoPin) {
+    digitalWrite(trigPin, LOW);
+    delay(5);
+    digitalWrite(trigPin, HIGH);
+    delay(10);
+    digitalWrite(trigPin, LOW);
+
+    long time = pulseIn(echoPin, HIGH);
+    return time/2*0.343;
+}
+
+void initialUltrasonicDistance() {
+    initialUltrasonic = ultrasonicPulse(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+}
+
+void checkUltrasonicDistance() {
+    float finalUltrasonic = ultrasonicPulse(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+
+    float distanceDelta = initialUltrasonic - finalUltrasonic;
+
+    accurateDistance = (leftTotalDistance + rightTotalDistance + distanceDelta)/3;
+
+    initialUltrasonic = 0;
+}
+
+void checkSurroundings() {
+    float frontDistance = ultrasonicPulse(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN); //this only returns time duration
+    float leftDistance = ultrasonicPulse(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    float rightDistance = ultrasonicPulse(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+
+    
+}
+
+bool checkStuck() {
+    if (isMoving) {
+        float time = ultrasonicPulse(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+        float delta = checkStuck - time;
+        if (delta < 0.1 && delta > -0.1) return true;
+        return false;
+    }
+}
+
+void djisktra() {
+    int maze[10][10] = {}; //initializes an empty 2D array that is used to represent the maze
+
+    directions = [{1, 0}, {-1, 0}, {0, 1}, {0, -1}]; //right, left, up, down
+
+    
+
+}
+
+
+
+void loop() {
+    initialUltrasonicDistance(); //set initial ultrasonic distance
+    if (isMoving) {
+        if ultrasonicPulse
+    }
+    //...do stuff
+    checkUltrasonicDistance();
+}
+
+/*
+{{0, 0, 0, 0, 0}, 
+ {0, 0, 0, 0, 0},
+ {0, 0, 0, 0, 0},
+ {0, 0, 0, 0, 0},
+ {0, 0, 0, 0, 0}
+ }
+
+
+*/
