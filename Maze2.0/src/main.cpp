@@ -122,16 +122,17 @@ void updateMPU() {
     yaw += gyroZ * elapsedTime;
 }
 
-void move(int PWM, bool forward) {
-    isMovingForward = forward;
+void MoveForward(int PWM) {
+    isMovingForward = true;  // Fixed: Was using undefined variable 'forward'
     analogWrite(FNA, PWM);
-    digitalWrite(IN1, forward);
-    digitalWrite(IN2, !forward);
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
     analogWrite(FNB, PWM);
-    digitalWrite(IN3, forward);
-    digitalWrite(IN4, !forward);
-    Serial.println(forward ? "Moving Forward..." : "Moving Backward...");
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    Serial.println("Moving Forward...");  // Added feedback message
 }
+
 
 void stopMotors() {
     isMovingForward = false;
@@ -158,7 +159,7 @@ void updateDistance() {
 }
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(9600);
     pinMode(IN1, OUTPUT);
     pinMode(IN2, OUTPUT);
     pinMode(IN3, OUTPUT);
@@ -173,7 +174,16 @@ void setup() {
     ultrasonicSetup(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
     ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
     Wire.begin();
+    Wire.beginTransmission(MPU);  // Added: Initialize MPU communication
+    Wire.write(0x6B);             // PWR_MGMT_1 register
+    Wire.write(0);                // Wake up the MPU-6050
+    Wire.endTransmission(true);
     calculateError();
+    
+    // Reset distance counters
+    leftTotalDistance = 0.0;
+    rightTotalDistance = 0.0;
+    targetReached = false;
 }
 
 void loop() {
@@ -194,62 +204,55 @@ void loop() {
 
      //===========================MOTOR CONTROL + ROTARY ENCODER===========================================
 
-    // // Move forward for 25 cm
-    // // if (!targetReached) {
-    // //     MoveForward(150);
-    // // }
+    //Move forward for 25 cm
+    if (!targetReached) {  // Added check to prevent continuous movement after target is reached
+        MoveForward(150);
+    }
 
-    // MoveForward(150);
+    // Update and display distance traveled by the wheels
+    updateDistance();
 
-    //    // Update and display distance traveled by the wheels
-    // updateDistance();
+    // Calculate RPM
+    calculateRPM();
 
-    // // Calculate RPM
-    // calculateRPM();
+    // Display data for Serial Plotter (comma-separated values)
+    Serial.print("LeftRaw:");
+    Serial.print(digitalRead(LEFT_ENCODER_PIN));
+    Serial.print(",RightRaw:");
+    Serial.print(digitalRead(RIGHT_ENCODER_PIN));
+    Serial.print(",LeftRPM:");
+    Serial.print(leftRPM);
+    Serial.print(",RightRPM:");
+    Serial.println(rightRPM); // Use println for the last value to end the line
 
-    // // Display data for Serial Plotter (comma-separated values)
-    // Serial.print("LeftRaw:");
-    // Serial.print(digitalRead(LEFT_ENCODER_PIN));
-    // Serial.print(",RightRaw:");
-    // Serial.print(digitalRead(RIGHT_ENCODER_PIN));
-    // Serial.print(",LeftRPM:");
-    // Serial.print(leftRPM);
-    // Serial.print(",RightRPM:");
-    // Serial.println(rightRPM); // Use println for the last value to end the line
+    // Display data for Serial Monitor (text-based)
+    Serial.print("Left Distance: ");
+    Serial.print(leftTotalDistance);
+    Serial.print(" cm | Right Distance: ");
+    Serial.print(rightTotalDistance);
+    Serial.print(" cm | Avg Distance: ");
+    Serial.print((leftTotalDistance + rightTotalDistance) / 2.0);
+    Serial.println(" cm");
 
-    // // Display data for Serial Monitor (text-based)
-    // Serial.print("Left Distance: ");
-    // Serial.print(leftTotalDistance);
-    // Serial.print(" cm | Right Distance: ");
-    // Serial.print(rightTotalDistance);
-    // Serial.print(" cm | Avg Distance: ");
-    // Serial.print((leftTotalDistance + rightTotalDistance) / 2.0);
-    // Serial.println(" cm");
-
-    // // Stop when the target distance is reached
-    // if ((leftTotalDistance + rightTotalDistance) / 2.0 >= 25.0 && !targetReached) {
-    //     Stop();
-    //     targetReached = true;
-    // }
-
-
+    // Stop when the target distance is reached
+    if ((leftTotalDistance + rightTotalDistance) / 2.0 >= 25.0 && !targetReached) {
+        stopMotors();
+        targetReached = true;
+    }
 
     //===============================MPU-6050==============================================================
 
-    // Update MPU6050 angles
-    updateMPU();
+    // // Update MPU6050 angles
+    // updateMPU();
 
-    // Print MPU6050 angles
-    Serial.print("Roll: ");
-    Serial.print(roll);
-    Serial.print("° | Pitch: ");
-    Serial.print(pitch);
-    Serial.print("° | Yaw: "); //(Turning angle) negative for right turn and positive for left hand turn 
-    Serial.print(yaw);
-    Serial.println("°");
+    // // Print MPU6050 angles
+    // Serial.print("Roll: ");
+    // Serial.print(roll);
+    // Serial.print("° | Pitch: ");
+    // Serial.print(pitch);
+    // Serial.print("° | Yaw: "); //(Turning angle) negative for right turn and positive for left hand turn 
+    // Serial.print(yaw);
+    // Serial.println("°");
 
-    delay(150);  // Slightly longer delay for smoother readings
-
-
-
+   delay(100);  // Added delay for stability
 }
