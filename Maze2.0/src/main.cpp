@@ -102,6 +102,11 @@ float getDistance(int trigPin, int echoPin) {
     return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
 }
 
+inline int getDih (int trigPin, int echoPin) // Tresthold Dis for junction 
+{
+    return getDistance( trigPin, echoPin) <=10 ? 0 : 1; 
+}
+
 // MPU6050 Setup
 const int MPU = 0x68;
 const float GYRO_SCALE = 1.0 / 131.0;
@@ -477,56 +482,65 @@ void MoveForward(int PWM) {
     Serial.println("Moving Forward...");  // Added feedback message
 }
 
-// void MoveForwardUltra(int PWM) {
-//     static float initialDistance = getFilteredDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN); // Use filtered distance
-//     if (initialDistance <= 0) {
-//         Serial.println("Invalid initial distance. Cannot move.");
-//         return;
-//     }
+void moveForwards(int PWM) {
+    if (!isMovingForward && !targetReached) {
+        // Reset distance counters before movement starts
+        leftTotalDistance = 0.0;
+        rightTotalDistance = 0.0;
+        targetReached = false;
+    }
 
-//     isMovingForward = true;
-//     Serial.print("Initial Distance: ");
-//     Serial.println(initialDistance);
+    // Start moving forward
+    isMovingForward = true;
+    analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
 
-//     // Move the car forward
-//     analogWrite(FNA, PWM);
-//     digitalWrite(IN1, HIGH);
-//     digitalWrite(IN2, LOW);
-//     analogWrite(FNB, PWM);
-//     digitalWrite(IN3, HIGH);
-//     digitalWrite(IN4, LOW);
+    while (isMovingForward && !targetReached) {
+        // Update MPU6050 data for bearing correction
+        updateMPU();
 
-//     // Continuously update the distance traveled
-//     while (isMovingForward) {
-//         float currentDistance = getFilteredDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+        // Calculate the correction needed based on yaw
+        float correction = initialYaw - yaw; // Turn right is negative
 
-//         // Handle invalid readings
-//         if (currentDistance < 0) {
-//             Serial.println("Invalid distance reading. Skipping...");
-//             continue;
-//         }
+        // Apply proportional correction to motors
+        if (correction > 3) { // Need to turn left
+            digitalWrite(IN1, LOW);
+            digitalWrite(IN2, HIGH);
+            digitalWrite(IN3, HIGH);
+            digitalWrite(IN4, LOW);
+        } else if (correction < -3) { // Need to turn right
+            digitalWrite(IN1, HIGH);
+            digitalWrite(IN2, LOW);
+            digitalWrite(IN3, LOW);
+            digitalWrite(IN4, HIGH);
+        } else { // No correction needed
+            digitalWrite(IN1, HIGH);
+            digitalWrite(IN2, LOW);
+            digitalWrite(IN3, HIGH);
+            digitalWrite(IN4, LOW);
+        }
 
-//         // Calculate the distance traveled
-//         distanceTraveled = initialDistance - currentDistance;
+        // Update distance traveled
+        updateDistance();
 
-//         // Print the current distance and distance traveled for debugging
-//         Serial.print("Current Distance: ");
-//         Serial.println(currentDistance);
-//         Serial.print("Distance Traveled: ");
-//         Serial.println(distanceTraveled);
+        // Calculate average distance
+        float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
 
-//         // Check if the distance traveled has reached 25 cm
-//         if (distanceTraveled >= TARGET_DISTANCE) {
-//             stopMotors();
-//             targetReached = true;
-//             Serial.println("Target distance traveled reached. Stopping the car.");
-//             break; // Exit the loop
-//         }
+        // Stop if the target distance is reached
+        if (avgDistance >= TARGET_DISTANCE && !targetReached) {
+            stopMotors();
+            targetReached = true;
+            break; // Exit the loop
+        }
 
-//         // Small delay for stability
-//         delay(50);
-//     }
-// }
+        delay(5); // Small delay for stability
+    }
+}
+
 
 void stopMotors() {
     isMovingForward = false;
@@ -548,6 +562,102 @@ void updateDistance() {
         if (avgDistance >= TARGET_DISTANCE && !targetReached) {
             stopMotors();
             targetReached = true;
+        }
+    }
+}
+
+//-----------------------ALGORITM---------------------------------------------------------
+
+// Initialise arrays to be used in maze movement
+// **********************************************************************
+// in next (2nd) draft, change these to local variables and use pointers 
+// **********************************************************************
+char temp_movement[ROWS * COLS];
+char final_movement[ROWS * COLS];
+int movement_index[ROWS * COLS];
+
+// Initialise counters and flags
+int index_counter = 0;
+int prev_junction = 0;         // if last movement was forwards, set 1 ,    if last movement was left, set 2,   if right, set 3
+int front, left, right;
+
+int back_it_up_bih (int back_index)
+{
+    // function to make this bih do a 180º 
+    // 8==================================D -----
+
+    // **********************************************************************
+    // test: trial and error weather i > OR i >= should be used 
+    // **********************************************************************
+    for (int i = back_index; i > movement_index[index_counter]; i--)
+    {
+        if (temp_movement[i] = 'F')
+        {
+            moveForwards(100);
+        }
+        else if (temp_movement[i] = 'L')
+        {
+           turnRight90(); // function to TURN RIGHT *** OPPOSITE DIRECTION
+        }
+        else if (temp_movement[i] = 'R')
+        {
+            turnLeft90(); // function to TURN LEFT *** OPPOSITE DIRECTION
+        }
+    }
+
+    // this bih has returned to most recent junction
+    return movement_index[index_counter];
+}
+
+void keep_going_daddy ()
+{
+    for (int i = 0; i < ROWS * COLS; i++)
+    {
+        front = getDih(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+        left = getDih(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+        right = getDih(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+
+        if (prev_junction >= 1 && front)          // if there is a baddie in front && the baddie has been visited before
+        {
+            if (left || right) movement_index[index_counter++] = i;     // save at which movement/node there is a junction
+            move(255, true);
+            temp_movement[i] = 'F'
+        }
+        else if (prev_junction >= 2 && left)      // if there is a baddie to the left && the baddie has been visited before
+        {
+            // function to turn left
+            // 8==================================D -----
+            move(255, true);
+            temp_movement[i] = 'L'
+        }
+        else if (prev_junction >= 3 && right)     // if there is a baddie to the right && the baddie has been visited before
+        {
+            // function to turn right
+            // 8==================================D -----
+            move(255, true);
+            temp_movement[i] = 'R'
+        }
+        else                // there is no baddie in front, left or right, i.e. a dead end
+        {
+            i = back_it_up_bih (i);
+
+            // check which direction did this bih last take & 
+            // set prev_junction flag to indicate which direction this bih should avoid
+            if (temp_movement[i] = 'F')
+            {
+                // functon to make this bih to a 180º
+                prev_junction = 1;
+            }
+            else if (temp_movement[i] = 'L')
+            {
+                // function to make this bih turn left
+                prev_junction = 2;
+            }
+            else if (temp_movement[i] = 'R')
+            {
+                // function to nake this bih turn right
+                prev_junction = 3;
+            }
         }
     }
 }
@@ -593,37 +703,37 @@ void setup() {
 void loop() {
 
 //==========================ULTRASONIC SENSOR=========================================================
-    // // Read distances from all three ultrasonic sensors
-    // float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    // float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-    // float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+    // Read distances from all three ultrasonic sensors
+    float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-    // // Display ultrasonic sensor readings
-    // Serial.print("Front: ");
-    // Serial.print(frontDistance);
-    // Serial.print(" cm | Left: ");
-    // Serial.print(leftDistance);
-    // Serial.print(" cm | Right: ");
-    // Serial.print(rightDistance);
-    // Serial.println(" cm");
+    // Display ultrasonic sensor readings
+    Serial.print("Front: ");
+    Serial.print(frontDistance);
+    Serial.print(" cm | Left: ");
+    Serial.print(leftDistance);
+    Serial.print(" cm | Right: ");
+    Serial.print(rightDistance);
+    Serial.println(" cm");
 
 //===========================Ultrasonic 25cm====================================================
-if (!hasStarted) {
-    hasStarted = true;
-    initialDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-  } else {
-    float currentDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    float deltaDistance = initialDistance - currentDistance;
-    initialDistance = currentDistance;
-    totalDistance += deltaDistance;
-  }
-  if (totalDistance > 25) {
-    Serial.println("Done");
-    stopMotors();
-  } else {
-    MoveForward(150);
- delay(5);
-  }
+// if (!hasStarted) {
+//     hasStarted = true;
+//     initialDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+//   } else {
+//     float currentDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+//     float deltaDistance = initialDistance - currentDistance;
+//     initialDistance = currentDistance;
+//     totalDistance += deltaDistance;
+//   }
+//   if (totalDistance > 18) { //Stops at 25cm, 7cm(overshoot)  offset 
+//     Serial.println("Done");
+//     stopMotors();
+//   } else {
+//     MoveForward(100);
+//  delay(5);
+//   }
 
 
 //===========================MOTOR CONTROL + ROTARY ENCODER===========================================
@@ -665,6 +775,12 @@ if (!hasStarted) {
     // }
 
 //===============================25cm===================================================================
+    if (!targetReached) {
+        moveForwards(100); // Move forward with PWM = 100
+    } else {
+        Serial.println("Target distance reached.");
+    }
+
 
     // if (!isMovingForward && !targetReached) {
     //     // Reset distance counters before movement starts
@@ -673,7 +789,7 @@ if (!hasStarted) {
     //     targetReached = false;
 
     //     // Start moving
-    //     MoveForward(100);
+    //     moveForwards(100);
     // }
 
     // // Update distance traveled
