@@ -22,6 +22,7 @@
 #define FNA 3
 #define FNB 11
 
+
 // Target distance to travel (in centimeters)
 #define TARGET_DISTANCE 25.0 //(in cm)
 
@@ -57,6 +58,13 @@ const unsigned long CORRECTION_INTERVAL = 500; // milliseconds
 // Interrupt service routines
 void leftEncoderISR() { leftPulses++; }
 void rightEncoderISR() { rightPulses++; }
+
+
+bool hasStarted = false;
+float initialDistance = 0;
+float totalDistance = 0;
+
+
 
 // RPM calculation variables
 unsigned long lastLeftPulseTime = 0;
@@ -469,6 +477,56 @@ void MoveForward(int PWM) {
     Serial.println("Moving Forward...");  // Added feedback message
 }
 
+// void MoveForwardUltra(int PWM) {
+//     static float initialDistance = getFilteredDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN); // Use filtered distance
+//     if (initialDistance <= 0) {
+//         Serial.println("Invalid initial distance. Cannot move.");
+//         return;
+//     }
+
+//     isMovingForward = true;
+//     Serial.print("Initial Distance: ");
+//     Serial.println(initialDistance);
+
+//     // Move the car forward
+//     analogWrite(FNA, PWM);
+//     digitalWrite(IN1, HIGH);
+//     digitalWrite(IN2, LOW);
+//     analogWrite(FNB, PWM);
+//     digitalWrite(IN3, HIGH);
+//     digitalWrite(IN4, LOW);
+
+//     // Continuously update the distance traveled
+//     while (isMovingForward) {
+//         float currentDistance = getFilteredDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+
+//         // Handle invalid readings
+//         if (currentDistance < 0) {
+//             Serial.println("Invalid distance reading. Skipping...");
+//             continue;
+//         }
+
+//         // Calculate the distance traveled
+//         distanceTraveled = initialDistance - currentDistance;
+
+//         // Print the current distance and distance traveled for debugging
+//         Serial.print("Current Distance: ");
+//         Serial.println(currentDistance);
+//         Serial.print("Distance Traveled: ");
+//         Serial.println(distanceTraveled);
+
+//         // Check if the distance traveled has reached 25 cm
+//         if (distanceTraveled >= TARGET_DISTANCE) {
+//             stopMotors();
+//             targetReached = true;
+//             Serial.println("Target distance traveled reached. Stopping the car.");
+//             break; // Exit the loop
+//         }
+
+//         // Small delay for stability
+//         delay(50);
+//     }
+// }
 
 void stopMotors() {
     isMovingForward = false;
@@ -533,6 +591,7 @@ void setup() {
 
 
 void loop() {
+
 //==========================ULTRASONIC SENSOR=========================================================
     // // Read distances from all three ultrasonic sensors
     // float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
@@ -547,6 +606,25 @@ void loop() {
     // Serial.print(" cm | Right: ");
     // Serial.print(rightDistance);
     // Serial.println(" cm");
+
+//===========================Ultrasonic 25cm====================================================
+if (!hasStarted) {
+    hasStarted = true;
+    initialDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+  } else {
+    float currentDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    float deltaDistance = initialDistance - currentDistance;
+    initialDistance = currentDistance;
+    totalDistance += deltaDistance;
+  }
+  if (totalDistance > 25) {
+    Serial.println("Done");
+    stopMotors();
+  } else {
+    MoveForward(150);
+ delay(5);
+  }
+
 
 //===========================MOTOR CONTROL + ROTARY ENCODER===========================================
 
@@ -676,41 +754,42 @@ void loop() {
 
 //================================180 TURN======================================================================
     // Update MPU6050 angles
-    updateMPU();
+    // updateMPU();
     
-    // Print current bearing information
-    float relativeYaw = yaw - initialYaw;
-    float normalizedYaw = normalizeYaw(relativeYaw);
+    // // Print current bearing information
+    // float relativeYaw = yaw - initialYaw;
+    // float normalizedYaw = normalizeYaw(relativeYaw);
     
-    Serial.print("Current Yaw: ");
-    Serial.print(yaw);
-    Serial.print("°, Normalized Yaw: ");
-    Serial.print(normalizedYaw);
-    Serial.print("°, Current Bearing: ");
-    Serial.print(currentBearing);
-    Serial.println("°");
+    // Serial.print("Current Yaw: ");
+    // Serial.print(yaw);
+    // Serial.print("°, Normalized Yaw: ");
+    // Serial.print(normalizedYaw);
+    // Serial.print("°, Current Bearing: ");
+    // Serial.print(currentBearing);
+    // Serial.println("°");
     
-    // Static variable to ensure the turn only happens once
-    static bool turnCompleted = false;
+    // // Static variable to ensure the turn only happens once
+    // static bool turnCompleted = false;
     
-    // Execute the turn only once
-    if (!turnCompleted) {
-        turn180();  // Or turnLeft90() depending on what you want to test
-        turnCompleted = true;
-        Serial.println("Turn and stop sequence completed");
-    }
+    // // Execute the turn only once
+    // if (!turnCompleted) {
+    //     turn180();  // Or turnLeft90() depending on what you want to test
+    //     turnCompleted = true;
+    //     Serial.println("Turn and stop sequence completed");
+    // }
     
-    // Continuously check and correct bearing, but not too frequently
-    if (millis() - lastCorrectionTime > CORRECTION_INTERVAL) {
-        maintainBearing();
-        lastCorrectionTime = millis();
-    }
+    // // Continuously check and correct bearing, but not too frequently
+    // if (millis() - lastCorrectionTime > CORRECTION_INTERVAL) {
+    //     maintainBearing();
+    //     lastCorrectionTime = millis();
+    // }
     
-    // Keep updating distance if moving forward
-    if (isMovingForward) {
-        updateDistance();
-    }
+    // // Keep updating distance if moving forward
+    // if (isMovingForward) {
+    //     updateDistance();
+    // }
     
-    delay(100);  // Small delay for more responsive bearing corrections
+    // delay(100);  // Small delay for more responsive bearing corrections
+    //}
 
 }
