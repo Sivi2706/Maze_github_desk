@@ -259,20 +259,47 @@ void loop() {
 }
 
 // Initialise arrays to be used in maze movement
+// **********************************************************************
+// in next (2nd) draft, change these to local variables and use pointers 
+// **********************************************************************
 char temp_movement[ROWS * COLS];
 char final_movement[ROWS * COLS];
 int movement_index[ROWS * COLS];
 
 // Initialise counters and flags
-int index_counter = 0, junction_count = 0;
+int index_counter = 0;
+int prev_junction = 0;         // if last movement was forwards, set 1 ,    if last movement was left, set 2,   if right, set 3
 int front, left, right;
 
-void back_it_up_daddy ()
+int back_it_up_bih (int back_index)
 {
-    
+    // function to make this bih do a 180º 
+    // 8==================================D -----
+
+    // **********************************************************************
+    // test: trial and error weather i > OR i >= should be used 
+    // **********************************************************************
+    for (int i = back_index; i > movement_index[index_counter]; i--)
+    {
+        if (temp_movement[i] = 'F')
+        {
+            move(255, true);
+        }
+        else if (temp_movement[i] = 'L')
+        {
+            // function to TURN RIGHT *** OPPOSITE DIRECTION
+        }
+        else if (temp_movement[i] = 'R')
+        {
+            // function to TURN LEFT *** OPPOSITE DIRECTION
+        }
+    }
+
+    // this bih has returned to most recent junction
+    return movement_index[index_counter];
 }
 
-void idkwhattonamethisfunctionyet ()
+void keep_going_daddy ()
 {
     for (int i = 0; i < ROWS * COLS; i++)
     {
@@ -280,24 +307,47 @@ void idkwhattonamethisfunctionyet ()
         left = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
         right = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-        if (front)          // if there is space in front
+        if (prev_junction >= 1 && front)          // if there is a baddie in front && the baddie has been visited before
         {
             if (left || right) movement_index[index_counter++] = i;     // save at which movement/node there is a junction
             move(255, true);
+            temp_movement[i] = 'F'
         }
-        else if (left)      // if there is space to the left
+        else if (prev_junction >= 2 && left)      // if there is a baddie to the left && the baddie has been visited before
         {
             // function to turn left
+            // 8==================================D -----
             move(255, true);
+            temp_movement[i] = 'L'
         }
-        else if (right)     // if there is space to the right
+        else if (prev_junction >= 3 && right)     // if there is a baddie to the right && the baddie has been visited before
         {
             // function to turn right
+            // 8==================================D -----
             move(255, true);
+            temp_movement[i] = 'R'
         }
-        else                // there is no space in front, left or right, i.e. a dead end
+        else                // there is no baddie in front, left or right, i.e. a dead end
         {
-            back_it_up_daddy();
+            i = back_it_up_bih (i);
+
+            // check which direction did this bih last take & 
+            // set prev_junction flag to indicate which direction this bih should avoid
+            if (temp_movement[i] = 'F')
+            {
+                // functon to make this bih to a 180º
+                prev_junction = 1;
+            }
+            else if (temp_movement[i] = 'L')
+            {
+                // function to make this bih turn left
+                prev_junction = 2;
+            }
+            else if (temp_movement[i] = 'R')
+            {
+                // function to nake this bih turn right
+                prev_junction = 3;
+            }
         }
     }
 }
