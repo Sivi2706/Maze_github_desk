@@ -283,6 +283,53 @@ void turnLeft90() {
     alignToBearing(newBearing);
 }
 
+// Function to turn 180 degrees (spin to the opposite bearing)
+void turn180() {
+    // Calculate the new bearing after a 180-degree turn
+    int newBearing = currentBearing + 180;
+    if (newBearing >= 360) newBearing -= 360;
+
+    Serial.print("Turning 180° from bearing ");
+    Serial.print(currentBearing);
+    Serial.print("° to ");
+    Serial.print(newBearing);
+    Serial.println("°");
+
+    // Start turning (choose either left or right turn)
+    // Here, we'll use a left turn for 180 degrees
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);  // Left motor backward
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);  // Right motor forward
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+
+    // Turn roughly 170 degrees (allows for overshoot)
+    float startYaw = yaw;
+    float targetYaw = startYaw + 170.0;  // Adjust for overshoot
+
+    while (yaw < targetYaw) {
+        updateMPU();
+
+        // Print current yaw for debugging
+        Serial.print("Turning: Current Yaw = ");
+        Serial.print(yaw);
+        Serial.print(", Target = ");
+        Serial.println(targetYaw);
+
+        delay(10);  // Small delay for stability
+    }
+
+    // Stop motors after rough turn
+    stopMotors();
+    Serial.println("Rough 180° turn complete");
+
+    // Update current bearing
+    currentBearing = newBearing;
+
+    // Fine-tune alignment with the new bearing
+    alignToBearing(newBearing);
+}
 
 
 // Function to align with the nearest cardinal direction
@@ -589,6 +636,45 @@ void loop() {
     //    delay(100);  // Added delay for stability
 
 //=================================90 RIGHT & LEFT============================================================
+    // // Update MPU6050 angles
+    // updateMPU();
+    
+    // // Print current bearing information
+    // float relativeYaw = yaw - initialYaw;
+    // float normalizedYaw = normalizeYaw(relativeYaw);
+    
+    // Serial.print("Current Yaw: ");
+    // Serial.print(yaw);
+    // Serial.print("°, Normalized Yaw: ");
+    // Serial.print(normalizedYaw);
+    // Serial.print("°, Current Bearing: ");
+    // Serial.print(currentBearing);
+    // Serial.println("°");
+    
+    // // Static variable to ensure the turn only happens once
+    // static bool turnCompleted = false;
+    
+    // // Execute the turn only once
+    // if (!turnCompleted) {
+    //     turnRight90();  // Or turnLeft90() depending on what you want to test
+    //     turnCompleted = true;
+    //     Serial.println("Turn and stop sequence completed");
+    // }
+    
+    // // Continuously check and correct bearing, but not too frequently
+    // if (millis() - lastCorrectionTime > CORRECTION_INTERVAL) {
+    //     maintainBearing();
+    //     lastCorrectionTime = millis();
+    // }
+    
+    // // Keep updating distance if moving forward
+    // if (isMovingForward) {
+    //     updateDistance();
+    // }
+    
+    // delay(100);  // Small delay for more responsive bearing corrections
+
+//================================180 TURN======================================================================
     // Update MPU6050 angles
     updateMPU();
     
@@ -609,7 +695,7 @@ void loop() {
     
     // Execute the turn only once
     if (!turnCompleted) {
-        turnRight90();  // Or turnLeft90() depending on what you want to test
+        turn180();  // Or turnLeft90() depending on what you want to test
         turnCompleted = true;
         Serial.println("Turn and stop sequence completed");
     }
@@ -626,4 +712,5 @@ void loop() {
     }
     
     delay(100);  // Small delay for more responsive bearing corrections
+
 }
