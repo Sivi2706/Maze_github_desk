@@ -220,8 +220,13 @@ void checkSurroundings() {
     float rightDistance = ultrasonicPulse(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
     if (leftDistance > 25) leftOpening = true;
+<<<<<<< Updated upstream
     if (frontDistance > 25) frontOpening = true;
     if (rightDistance > 25) rightOpening = true;
+=======
+    if (rightDistance > 25) rightOpening = true;
+    if (frontDistance > 25) frontOpening = true;
+>>>>>>> Stashed changes
 }
 
 bool checkStuck() {
@@ -240,6 +245,7 @@ void explore() {
     int maze[8][8] = {};
 
     Position current = {0, 0};
+<<<<<<< Updated upstream
 
     Position explored[64] = {current};
 
@@ -277,4 +283,41 @@ void loop() {
  }
 
 
+=======
+
+    Position explored[64] = {current};
+
+
+}
+
+void djisktra() {
+    int maze[10][10] = {}; //initializes an empty 2D array that is used to represent the maze
+
+    directions = [{1, 0}, {-1, 0}, {0, 1}, {0, -1}]; //right, left, up, down
+
+    
+
+}
+
+
+
+void loop() {
+    initialUltrasonicDistance(); //set initial ultrasonic distance
+    if (checkStuck()) {
+        reverse(); //if the car is stuck, reverse
+    }
+    //...do stuff
+    checkUltrasonicDistance();
+}
+
+/*
+{{0, 0, 0, 0, 0}, 
+ {0, 0, 0, 0, 0},
+ {0, 0, 0, 0, 0},
+ {0, 0, 0, 0, 0},
+ {0, 0, 0, 0, 0}
+ }
+
+
+>>>>>>> Stashed changes
 */
