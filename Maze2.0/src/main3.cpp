@@ -644,6 +644,7 @@ void keep_going_daddy (goon_char temp_movement, goon_int movement_index, goon_in
         {
             // **********************************************************************
             // remember to update/decrement the index_counter
+            // along with reset the junction_gooned flag
             // **********************************************************************
             i = back_it_up_bih (i, temp_movement, movement_index, &index_counter);
 
@@ -657,17 +658,17 @@ void keep_going_daddy (goon_char temp_movement, goon_int movement_index, goon_in
             // **********************************************************************
             // check whether i or ++i should be used
             // **********************************************************************
-            if (temp_movement[i] = 'F')
+            if (temp_movement[i + 1] = 'F')
             {
                 turn180();                              // reorient the bih
                 junction_gooned[index_counter] = 1;     // flag the junction has been gooned
             }
-            else if (temp_movement[i] = 'L')
+            else if (temp_movement[i + 1] = 'L')
             {
                 turnLeft90();                           // reorient the bih
                 junction_gooned[index_counter] = 2;     // flag the junction has been gooned
             }
-            else if (temp_movement[i] = 'R')
+            else if (temp_movement[i + 1] = 'R')
             {
                 turnRight90();                          // reorient the bih
                 junction_gooned[index_counter] = 3;     // flag the junction has been gooned
@@ -745,6 +746,8 @@ void memoryWrite(char* input)
 void memoryRead(goon_char& buffer)
 {
     //char* buffer = "";
+    // i = 0; i < temp_movement.size();
+    // i = temp_movement.size() + 1; i < movement_index.size();
     int index = 0;
     for(int i = 0; i < EEPROM.length(); i++) 
     {
