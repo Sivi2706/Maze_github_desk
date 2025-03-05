@@ -82,6 +82,11 @@ float getDistance(int trigPin, int echoPin) {
     return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
 }
 
+inline int getDih (int trigPin, int echoPin)
+{
+    return getDistance (int trigPin, int echoPin) <= 23 ? 0 : 1;
+}
+
 // MPU6050 Setup
 const int MPU = 0x68;
 const float GYRO_SCALE = 1.0 / 131.0;
@@ -303,32 +308,38 @@ void keep_going_daddy ()
 {
     for (int i = 0; i < ROWS * COLS; i++)
     {
-        front = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-        left = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-        right = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+        front = getDih(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+        left = getDih(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+        right = getDih(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-        if (prev_junction >= 1 && front)          // if there is a baddie in front && the baddie has been visited before
+        if (prev_junction < 1 && front)          // if there is a baddie in front && the baddie has been visited before
         {
             if (left || right) movement_index[index_counter++] = i;     // save at which movement/node there is a junction
             move(255, true);
             temp_movement[i] = 'F'
         }
-        else if (prev_junction >= 2 && left)      // if there is a baddie to the left && the baddie has been visited before
+        else if (prev_junction < 2 && left)      // if there is a baddie to the left && the baddie has been visited before
         {
             // function to turn left
             // 8==================================D -----
             move(255, true);
             temp_movement[i] = 'L'
         }
-        else if (prev_junction >= 3 && right)     // if there is a baddie to the right && the baddie has been visited before
+        else if (prev_junction < 3 && right)     // if there is a baddie to the right && the baddie has been visited before
         {
             // function to turn right
             // 8==================================D -----
             move(255, true);
             temp_movement[i] = 'R'
         }
+        
+        // else if finish condition : All 3 Ultrasonic Distance > 2m
+
         else                // there is no baddie in front, left or right, i.e. a dead end
         {
+            // **********************************************************************
+            // logic error: index_counter-- required
+            // **********************************************************************
             i = back_it_up_bih (i);
 
             // check which direction did this bih last take & 
