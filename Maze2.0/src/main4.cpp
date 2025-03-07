@@ -588,15 +588,15 @@ int back_it_up_LeBron (int back_index, char* temp_movement, int* movement_index,
     // **********************************************************************
     for (int i = back_index; i > movement_index[*index_counter]; i--)
     {
-        if (temp_movement[i] = 'F')
+        if (temp_movement[i] == 'F')
         {
             moveForwards(100);
         }
-        else if (temp_movement[i] = 'L')
+        else if (temp_movement[i] == 'L')
         {
            turnRight90(); // function to TURN RIGHT *** OPPOSITE DIRECTION
         }
-        else if (temp_movement[i] = 'R')
+        else if (temp_movement[i] == 'R')
         {
             turnLeft90(); // function to TURN LEFT *** OPPOSITE DIRECTION
         }
@@ -652,17 +652,17 @@ void keep_going_LeBron (char* temp_movement, int* movement_index, int* junction_
             junction_gooned[(*index_counter)--] = 0;     // reset the junction_gooned flag and decrement the index_counter
             i = back_it_up_LeBron (i, temp_movement, movement_index, index_counter);
 
-            if (temp_movement[i + 1] = 'F')
+            if (temp_movement[i + 1] == 'F')
             {
                 turn180();                              // reorient LeBron
                 junction_gooned[*index_counter] = 1;     // flag the junction has been gooned
             }
-            else if (temp_movement[i + 1] = 'L')
+            else if (temp_movement[i + 1] == 'L')
             {
                 turnLeft90();                           // reorient LeBron
                 junction_gooned[*index_counter] = 2;     // flag the junction has been gooned
             }
-            else if (temp_movement[i + 1] = 'R')
+            else if (temp_movement[i + 1] == 'R')
             {
                 turnRight90();                          // reorient LeBron
                 junction_gooned[*index_counter] = 3;     // flag the junction has been gooned
@@ -678,17 +678,17 @@ void keep_going_LeBron (char* temp_movement, int* movement_index, int* junction_
             // if last movement was forwards = set 1 ,    if last movement was left = set 2,   if right = set 3
             // index_counter++ is not needed as we can just access the same array position as movement_index for simplicity
             // basically the node movement_index is referring to, will have a corresponding value in junction_gooned
-            if (temp_movement[i + 1] = 'F')
+            if (temp_movement[i + 1] == 'F')
             {
                 turn180();                              // reorient LeBron
                 junction_gooned[*index_counter] = 1;     // flag the junction has been gooned
             }
-            else if (temp_movement[i + 1] = 'L')
+            else if (temp_movement[i + 1] == 'L')
             {
                 turnLeft90();                           // reorient LeBron
                 junction_gooned[*index_counter] = 2;     // flag the junction has been gooned
             }
-            else if (temp_movement[i + 1] = 'R')
+            else if (temp_movement[i + 1] == 'R')
             {
                 turnRight90();                          // reorient LeBron
                 junction_gooned[*index_counter] = 3;     // flag the junction has been gooned
@@ -703,16 +703,16 @@ int follow_gooning_path(char* temp_movement, int* movement_index, int* index_cou
     int i;
     for (i = 0; i < movement_index[*index_counter - 1] + 1; i++)
     {
-        if (temp_movement[i] = 'F')
+        if (temp_movement[i] == 'F')
         {
             moveForwards(100);
         }
-        else if (temp_movement[i] = 'L')
+        else if (temp_movement[i] == 'L')
         {
             turnLeft90();
             moveForwards(100);
         }
-        else if (temp_movement[i] = 'R')
+        else if (temp_movement[i] == 'R')
         {
             turnRight90();
             moveForwards(100);
