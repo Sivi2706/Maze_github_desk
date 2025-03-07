@@ -116,7 +116,8 @@ float getDistance(int trigPin, int echoPin) {
 
 inline int checkTheDih (int trigPin, int echoPin) // Treshold distance for junction 
 {
-    return getDistance( trigPin, echoPin) <= 10 ? 0 : 1; 
+    if (getDistance(trigPin, echoPin) > 200) return -1;
+    return getDistance(trigPin, echoPin) <= 10 ? 0 : 1; 
 }
 
 // MPU6050 Setup
@@ -615,14 +616,19 @@ void keep_going_LeBron (goon_char temp_movement, goon_int movement_index, goon_i
         left = checkTheDih(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
         right = checkTheDih(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-        if (junction_gooned[index_counter] < 1 && front)          // if there is a baddie in front && the baddie has not been visited before
+        if (front == -1 && left == -1 && right == -1)                  // LeBron has reached the end of the maze
+        {
+            temp_movement[i] = '\0';        // null terminate the array
+            break;
+        }
+        else if (junction_gooned[index_counter] < 1 && front)          // if there is a baddie in front && the baddie has not been visited before
         {
             // save at which movement/node there is a junction
             if (left || right) movement_index[++index_counter] = i;     
             moveForwards(255);
             temp_movement[i] = 'F';
         }
-        else if (junction_gooned[index_counter] < 2 && left)      // if there is a baddie to the left && the baddie has not been visited before
+        else if (junction_gooned[index_counter] < 2 && left)           // if there is a baddie to the left && the baddie has not been visited before
         {
             // save at which movement/node there is a junction
             if (right) movement_index[++index_counter] = i;     
@@ -631,10 +637,8 @@ void keep_going_LeBron (goon_char temp_movement, goon_int movement_index, goon_i
             moveForwards(255);
             temp_movement[i++] = 'F';
         }
-        else if (junction_gooned[index_counter] < 3 && right)     // if there is a baddie to the right && the baddie has not been visited before
+        else if (junction_gooned[index_counter] < 3 && right)          // if there is a baddie to the right && the baddie has not been visited before
         {
-            // save at which movement/node there is a junction
-            // if (left) movement_index[index_counter++] = i;     
             turnRight90();
             temp_movement[i] = 'R';
             moveForwards(255);
@@ -691,14 +695,13 @@ void keep_going_LeBron (goon_char temp_movement, goon_int movement_index, goon_i
             }
         }
     }
-    return temp_movement;
 }
 
 int follow_gooning_path(goon_char temp_movement, goon_int movement_index, int* index_counter)
 {
-    // follow the path that was stored in the memory up until last junction
+    // follow the path that was stored in the memory up until SECOND last junction
     int i;
-    for (i = 0; i < movement_index[index_counter] + 1; i++)
+    for (i = 0; i < movement_index[index_counter - 1] + 1; i++)
     {
         if (temp_movement[i] = 'F')
         {
@@ -716,29 +719,7 @@ int follow_gooning_path(goon_char temp_movement, goon_int movement_index, int* i
         }
     }
     return i + 1;               // i + 1 so keep_going_LeBron can continue from the next array index
-
-    /*
-    int front, left, right;
-    front = checkTheDih(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    left = checkTheDih(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-    right = checkTheDih(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
-
-    // check what was the next movement in the previous path
-    if (temp_movement[movement_index[index_counter]] = 'F')
-    {
-        
-    }
-    else if (temp_movement[movement_index[index_counter]] = 'L')
-    {
-        
-    }
-    else if (temp_movement[movement_index[index_counter]] = 'R')
-    {
-        
-    }
-    */
 }
-
 
 // Reset memory in EEPROM
 void memoryReset()
@@ -750,35 +731,59 @@ void memoryReset()
 }
 
 // Write memory to EEPROM
-void memoryWrite(char* input)
+void memoryWrite(goon_char& final_movement, goon_int& movement_index, int* index_counter)
 {
-    for(int i = 0; i < MAX_GOONS; i++) 
-    {
-        EEPROM.write(i, input[i]);
-    }
+    // for(int i = 0; i < MAX_GOONS; i++) 
+    // {
+    //     EEPROM.write(i, input[i]);
+    // }
+    int addr = 0;
+    
+    EEPROM.put(addr, final_movement);
+    addr += sizeof(final_movement);
+
+    EEPROM.put(addr, movement_index);
+    addr += sizeof(movement_index);
+
+    EEPROM.put(addr, *index_counter);
 }
 
 // Read and Return all value from EEPROM
-void memoryRead(goon_char& buffer)
+int memoryRead(goon_char& final_movement, goon_int& movement_index, int* index_counter)
 {
-    //char* buffer = "";
     // i = 0; i < temp_movement.size();
     // i = temp_movement.size() + 1; i < movement_index.size();
-    int index = 0;
-    for(int i = 0; i < EEPROM.length(); i++) 
+    // int index_i = 0;
+    // for(int i = 0; i < EEPROM.length(); i++) 
+    // {
+    //     char temp = EEPROM.read(i);
+    //     if(temp != 0)
+    //     {
+    //         final_movement[i] = temp;
+    //         index_i++;
+    //     }
+    //     else
+    //     {
+    //         break;
+    //     }
+    // }
+    int addr = 0;
+    int check = 0;
+
+    if (EEPROM.get(addr, check) == 0xFFFF)
     {
-        char temp = EEPROM.read(i);
-        if(temp != 0)
-        {
-            buffer[i] = temp;
-            index++;
-        }
-        else
-        {
-            break;
-        }
+        return -1;      // EEPROM is empty
     }
-    buffer[index] = '\0';   // add null terminator to the end of the string
+
+    EEPROM.get(addr, final_movement);
+    addr += sizeof(final_movement);
+
+    EEPROM.get(addr, movement_index);
+    addr += sizeof(movement_index);
+
+    EEPROM.get(addr, *index_counter);
+
+    return 0;
 }
 
 void start_gooning ()
@@ -799,29 +804,24 @@ void start_gooning ()
     memset(junction_gooned.data(), 0, junction_gooned.size());
 
     int index_counter = 0;
-    int dih = 0;
+    int aura = 0;
 
-    memoryRead(final_movement);
-
-    if (final_movement[0] == '\0')                    // if no gooning pattern found in memory then start a new goon pattern
+    if (memoryRead(final_movement, movement_index, &index_counter) < 0)                    // if no gooning pattern found in memory then start a new goon pattern
     {
-        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &dih);
+        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &aura);
     }
     else
     {
         memcpy(final_movement.data(), temp_movement.data(), final_movement.size());
-        dih = follow_gooning_path(final_movement, movement_index, &index_counter);
-        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &dih);
-    }
+        aura = follow_gooning_path(final_movement, movement_index, &index_counter);
+        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &aura);
 
-    if (strlen(temp_movement) < strlen(final_movement))
-    {
-        // reset the memory so can save new goon pattern 
-        memoryReset();
-        memoryWrite(temp_movement);
-        // **********************************************************************
-        // add movement_index, index_counter to memory
-        // **********************************************************************
+        if (strlen(temp_movement) < strlen(final_movement))
+        {
+            // reset the memory so can save new goon pattern 
+            memoryReset();
+            memoryWrite(temp_movement, movement_index, &index_counter);
+        }
     }
 }
 
