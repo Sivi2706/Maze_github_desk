@@ -578,7 +578,7 @@ void updateDistance() {
 
 //-----------------------ALGORITM---------------------------------------------------------
 // who tf spelt algorithm liddat
-int back_it_up_bih (int back_index, goon_char temp_movement, goon_int movement_index, int* index_counter)
+int back_it_up_LeBron (int back_index, goon_char temp_movement, goon_int movement_index, int* index_counter)
 {
     turn180();            // turn away from gyat damn wall
 
@@ -601,11 +601,11 @@ int back_it_up_bih (int back_index, goon_char temp_movement, goon_int movement_i
         }
     }
 
-    // this bih has returned to most recent junction
+    // LeBron has returned to most recent junction
     return movement_index[index_counter];
 }
 
-void keep_going_daddy (goon_char temp_movement, goon_int movement_index, goon_int junction_gooned, int* index_counter, int* i)
+void keep_going_LeBron (goon_char temp_movement, goon_int movement_index, goon_int junction_gooned, int* index_counter, int* i)
 {
     int front, left, right;    
 
@@ -618,14 +618,14 @@ void keep_going_daddy (goon_char temp_movement, goon_int movement_index, goon_in
         if (junction_gooned[index_counter] < 1 && front)          // if there is a baddie in front && the baddie has not been visited before
         {
             // save at which movement/node there is a junction
-            if (left || right) movement_index[index_counter++] = i;     
+            if (left || right) movement_index[++index_counter] = i;     
             moveForwards(255);
             temp_movement[i] = 'F';
         }
         else if (junction_gooned[index_counter] < 2 && left)      // if there is a baddie to the left && the baddie has not been visited before
         {
             // save at which movement/node there is a junction
-            if (right) movement_index[index_counter++] = i;     
+            if (right) movement_index[++index_counter] = i;     
             turnLeft90();
             temp_movement[i] = 'L';
             moveForwards(255);
@@ -640,37 +640,53 @@ void keep_going_daddy (goon_char temp_movement, goon_int movement_index, goon_in
             moveForwards(255);
             temp_movement[i++] = 'F';
         }
-        else                // there is no baddie in front, left or right, i.e. a dead end
+        // this else if statement means:
+        // 1st part of OR condition: if LeBron returned from the left route of the junciton and there is no baddie on the right
+        // 2nd part of OR condition: if LeBron returned from the right route (least prioritised route)
+        else if ((junction_gooned[index_counter] = 2 && !right) || junction_gooned[index_counter] = 3)              
         {
-            // **********************************************************************
-            // remember to update/decrement the index_counter
-            // along with reset the junction_gooned flag
-            // **********************************************************************
-            i = back_it_up_bih (i, temp_movement, movement_index, &index_counter);
+            junction_gooned[index_counter--] = 0;     // reset the junction_gooned flag and decrement the index_counter
+            i = back_it_up_LeBron (i, temp_movement, movement_index, &index_counter);
 
-            // check which direction did this bih last take to go into that junction & 
-            // set prev_junction flag to indicate which direction this bih should avoid
-            // for junction_gooned:
-            // if last movement was forwards = set 1 ,    if last movement was left = set 2,   if right = set 3
-            // index_counter++ is not needed as we can just access the same array position as movement_index for simplicity
-            // basically the node movement_index is referring to, will have a corresponding value in junction_gooned
-
-            // **********************************************************************
-            // check whether i or ++i should be used
-            // **********************************************************************
             if (temp_movement[i + 1] = 'F')
             {
-                turn180();                              // reorient the bih
+                turn180();                              // reorient LeBron
                 junction_gooned[index_counter] = 1;     // flag the junction has been gooned
             }
             else if (temp_movement[i + 1] = 'L')
             {
-                turnLeft90();                           // reorient the bih
+                turnLeft90();                           // reorient LeBron
                 junction_gooned[index_counter] = 2;     // flag the junction has been gooned
             }
             else if (temp_movement[i + 1] = 'R')
             {
-                turnRight90();                          // reorient the bih
+                turnRight90();                          // reorient LeBron
+                junction_gooned[index_counter] = 3;     // flag the junction has been gooned
+            }
+        }
+        else                // this else block is specifically for when the baddie lead LeBron to a dead end
+        {
+            i = back_it_up_LeBron (i, temp_movement, movement_index, &index_counter);
+
+            // check which direction did LeBron last take to go into that junction & 
+            // set prev_junction flag to indicate which direction LeBron should avoid
+            // for junction_gooned:
+            // if last movement was forwards = set 1 ,    if last movement was left = set 2,   if right = set 3
+            // index_counter++ is not needed as we can just access the same array position as movement_index for simplicity
+            // basically the node movement_index is referring to, will have a corresponding value in junction_gooned
+            if (temp_movement[i + 1] = 'F')
+            {
+                turn180();                              // reorient LeBron
+                junction_gooned[index_counter] = 1;     // flag the junction has been gooned
+            }
+            else if (temp_movement[i + 1] = 'L')
+            {
+                turnLeft90();                           // reorient LeBron
+                junction_gooned[index_counter] = 2;     // flag the junction has been gooned
+            }
+            else if (temp_movement[i + 1] = 'R')
+            {
+                turnRight90();                          // reorient LeBron
                 junction_gooned[index_counter] = 3;     // flag the junction has been gooned
             }
         }
@@ -699,7 +715,7 @@ int follow_gooning_path(goon_char temp_movement, goon_int movement_index, int* i
             moveForwards(100);
         }
     }
-    return i + 1;               // i + 1 so keep_going_daddy can continue from the next array index
+    return i + 1;               // i + 1 so keep_going_LeBron can continue from the next array index
 
     /*
     int front, left, right;
@@ -789,13 +805,13 @@ void start_gooning ()
 
     if (final_movement[0] == '\0')                    // if no gooning pattern found in memory then start a new goon pattern
     {
-        keep_going_daddy(temp_movement, movement_index, junction_gooned, &index_counter, &dih);
+        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &dih);
     }
     else
     {
         memcpy(final_movement.data(), temp_movement.data(), final_movement.size());
         dih = follow_gooning_path(final_movement, movement_index, &index_counter);
-        keep_going_daddy(temp_movement, movement_index, junction_gooned, &index_counter, &dih);
+        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &dih);
     }
 
     if (strlen(temp_movement) < strlen(final_movement))

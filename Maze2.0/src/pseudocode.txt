@@ -1,0 +1,67 @@
+juntion:            √ √          √ = junction found, every junction found will increment index_counter BEFORE storing movement_index
+temp_movement:      F F F X
+movement_index, i:  0 1 2        back track to => i = 1, set juntion_gooned = 1 @ position 2
+                                      √
+temp_movement:          R F L F F R F F F F F L F F X
+movement_index, i:      2 3 4 5 6 7 8 9 0 1 2 3 4 5     (2 - 15 but i want to align the numbers and letters)
+                                                        back track to => i = 9, set juntion_gooned = 1, @ position index_counter = 3
+                                        L F F X         back track to => i = 9, set juntion_gooned = 2, @ position index_counter = 3
+                                        R F F X         back track to => i = 9, set juntion_gooned = 3, @ position index_counter = 3
+
+since junction_gooned = 3, & index_counter = 3: 
+set junction_gooned[index_counter] = 0, back track to => i = 1, decrement index_counter which should now be 2
+
+set junction_gooned[index_counter] = 3, since junction_gooned[2] = 3, & index_counter = 2
+set junction_gooned[index_counter] = 0, back track to => i = 0, decrement index_counter which should now be 1
+
+juntion:                                √               ++index_counter, which should now be 2
+temp_movement:        R F F F F F F F L F F F X
+movement_index, i:    1 2 3 4 5 6 7 8 9 0 1 2           10 is stored into movement_index @ position index_counter = 2
+                                                        back track to => i = 10, set juntion_gooned = 1, @ position index_counter = 2
+
+                                              √         ++index_counter, which should now be 3, 13 is stored into movement_index @ position index_counter = 3
+                                          R F F F(OUT)
+                                          1 2 3 4
+
+FINAL ARRAY ELEMENTS:
+temp_movement: [F, R, F, F, F, F, F, F, F, L, F, R, F, F, F]
+movement_index: [0, 0, 10, 13]
+junction_gooned: [0, 1, 1, 0]
+index_counter = 3
+
+keep_going_LeBron 
+{
+    for loop with int i 
+    {
+        if (junction_gooned < 1 && front has space)
+        {
+            increment index_counter FIRST BEFORE storing movement_index;
+                ** this means that movement_index[0] and junction_gooned[0] will always be empty, i.e. 0 **
+            add junction node to movement_index;
+            move front and input 'F';
+        }
+        else if (junction_gooned < 2 && left has space)
+        {
+            increment index_counter FIRST BEFORE storing movement_index;
+                ** this means that movement_index[0] and junction_gooned[0] will always be empty, i.e. 0 **
+            add junction node to movement_index;
+            move left and input 'L' & 'F';
+        }
+        else if (junction_gooned < 3 && right has space)
+        {
+            move right and input 'R' & 'F';
+        }
+        else if ((junction_gooned == 2 && right has no space) OR junction_gooned == 3)
+        {
+            set current junction_gooned = 0;
+            decrement index_counter;
+            back track to previous junction node;
+            set junction_gooned flag accordingly;
+        }
+        else (dead end of the path)
+        {
+            back track to previous junction node;
+            set junction_gooned flag accordingly;
+        }
+    }
+}
