@@ -2,8 +2,8 @@
 #include <PinChangeInterrupt.h>
 #include <Wire.h>
 #include <EEPROM.h>
-#include <array>
-#include <cstring>
+//#include <array>
+//#include <cstring>
 
 // Ultrasonic Sensor Pins
 #define FRONT_TRIGGER_PIN 10
@@ -81,8 +81,8 @@ float rightRPM = 0.0;
 #define MAX_GOONS ROWS * COLS
 
 // shortform gooning
-using goon_char = std::array<char, MAX_GOONS>;
-using goon_int = std::array<int, MAX_GOONS>;
+//using char = std::array<char, MAX_GOONS>;
+//using int = std::array<int, MAX_GOONS>;
 
 void calculateRPM() {
     unsigned long currentTime = millis();
@@ -579,14 +579,14 @@ void updateDistance() {
 
 //-----------------------ALGORITM---------------------------------------------------------
 // who tf spelt algorithm liddat
-int back_it_up_LeBron (int back_index, goon_char temp_movement, goon_int movement_index, int* index_counter)
+int back_it_up_LeBron (int back_index, char* temp_movement, int* movement_index, int* index_counter)
 {
     turn180();            // turn away from gyat damn wall
 
     // **********************************************************************
     // test: trial and error weather i > OR i >= should be used 
     // **********************************************************************
-    for (int i = back_index; i > movement_index[index_counter]; i--)
+    for (int i = back_index; i > movement_index[*index_counter]; i--)
     {
         if (temp_movement[i] = 'F')
         {
@@ -603,10 +603,10 @@ int back_it_up_LeBron (int back_index, goon_char temp_movement, goon_int movemen
     }
 
     // LeBron has returned to most recent junction
-    return movement_index[index_counter];
+    return movement_index[*index_counter];
 }
 
-void keep_going_LeBron (goon_char temp_movement, goon_int movement_index, goon_int junction_gooned, int* index_counter, int* i)
+void keep_going_LeBron (char* temp_movement, int* movement_index, int* junction_gooned, int* index_counter, int i)
 {
     int front, left, right;    
 
@@ -621,23 +621,23 @@ void keep_going_LeBron (goon_char temp_movement, goon_int movement_index, goon_i
             temp_movement[i] = '\0';        // null terminate the array
             break;
         }
-        else if (junction_gooned[index_counter] < 1 && front)          // if there is a baddie in front && the baddie has not been visited before
+        else if (junction_gooned[*index_counter] < 1 && front)          // if there is a baddie in front && the baddie has not been visited before
         {
             // save at which movement/node there is a junction
-            if (left || right) movement_index[++index_counter] = i;     
+            if (left || right) movement_index[++(*index_counter)] = i;     
             moveForwards(255);
             temp_movement[i] = 'F';
         }
-        else if (junction_gooned[index_counter] < 2 && left)           // if there is a baddie to the left && the baddie has not been visited before
+        else if (junction_gooned[*index_counter] < 2 && left)           // if there is a baddie to the left && the baddie has not been visited before
         {
             // save at which movement/node there is a junction
-            if (right) movement_index[++index_counter] = i;     
+            if (right) movement_index[++(*index_counter)] = i;     
             turnLeft90();
             temp_movement[i] = 'L';
             moveForwards(255);
             temp_movement[i++] = 'F';
         }
-        else if (junction_gooned[index_counter] < 3 && right)          // if there is a baddie to the right && the baddie has not been visited before
+        else if (junction_gooned[*index_counter] < 3 && right)          // if there is a baddie to the right && the baddie has not been visited before
         {
             turnRight90();
             temp_movement[i] = 'R';
@@ -647,30 +647,30 @@ void keep_going_LeBron (goon_char temp_movement, goon_int movement_index, goon_i
         // this else if statement means:
         // 1st part of OR condition: if LeBron returned from the left route of the junciton and there is no baddie on the right
         // 2nd part of OR condition: if LeBron returned from the right route (least prioritised route)
-        else if ((junction_gooned[index_counter] = 2 && !right) || junction_gooned[index_counter] = 3)              
+        else if ((junction_gooned[*index_counter] == 2 && !right) || junction_gooned[*index_counter] == 3)              
         {
-            junction_gooned[index_counter--] = 0;     // reset the junction_gooned flag and decrement the index_counter
-            i = back_it_up_LeBron (i, temp_movement, movement_index, &index_counter);
+            junction_gooned[(*index_counter)--] = 0;     // reset the junction_gooned flag and decrement the index_counter
+            i = back_it_up_LeBron (i, temp_movement, movement_index, index_counter);
 
             if (temp_movement[i + 1] = 'F')
             {
                 turn180();                              // reorient LeBron
-                junction_gooned[index_counter] = 1;     // flag the junction has been gooned
+                junction_gooned[*index_counter] = 1;     // flag the junction has been gooned
             }
             else if (temp_movement[i + 1] = 'L')
             {
                 turnLeft90();                           // reorient LeBron
-                junction_gooned[index_counter] = 2;     // flag the junction has been gooned
+                junction_gooned[*index_counter] = 2;     // flag the junction has been gooned
             }
             else if (temp_movement[i + 1] = 'R')
             {
                 turnRight90();                          // reorient LeBron
-                junction_gooned[index_counter] = 3;     // flag the junction has been gooned
+                junction_gooned[*index_counter] = 3;     // flag the junction has been gooned
             }
         }
         else                // this else block is specifically for when the baddie lead LeBron to a dead end
         {
-            i = back_it_up_LeBron (i, temp_movement, movement_index, &index_counter);
+            i = back_it_up_LeBron (i, temp_movement, movement_index, index_counter);
 
             // check which direction did LeBron last take to go into that junction & 
             // set prev_junction flag to indicate which direction LeBron should avoid
@@ -681,27 +681,27 @@ void keep_going_LeBron (goon_char temp_movement, goon_int movement_index, goon_i
             if (temp_movement[i + 1] = 'F')
             {
                 turn180();                              // reorient LeBron
-                junction_gooned[index_counter] = 1;     // flag the junction has been gooned
+                junction_gooned[*index_counter] = 1;     // flag the junction has been gooned
             }
             else if (temp_movement[i + 1] = 'L')
             {
                 turnLeft90();                           // reorient LeBron
-                junction_gooned[index_counter] = 2;     // flag the junction has been gooned
+                junction_gooned[*index_counter] = 2;     // flag the junction has been gooned
             }
             else if (temp_movement[i + 1] = 'R')
             {
                 turnRight90();                          // reorient LeBron
-                junction_gooned[index_counter] = 3;     // flag the junction has been gooned
+                junction_gooned[*index_counter] = 3;     // flag the junction has been gooned
             }
         }
     }
 }
 
-int follow_gooning_path(goon_char temp_movement, goon_int movement_index, int* index_counter)
+int follow_gooning_path(char* temp_movement, int* movement_index, int* index_counter)
 {
     // follow the path that was stored in the memory up until SECOND last junction
     int i;
-    for (i = 0; i < movement_index[index_counter - 1] + 1; i++)
+    for (i = 0; i < movement_index[*index_counter - 1] + 1; i++)
     {
         if (temp_movement[i] = 'F')
         {
@@ -731,7 +731,7 @@ void memoryReset()
 }
 
 // Write memory to EEPROM
-void memoryWrite(goon_char& final_movement, goon_int& movement_index, int* index_counter)
+void memoryWrite(char* final_movement, int* movement_index, int* index_counter)
 {
     // for(int i = 0; i < MAX_GOONS; i++) 
     // {
@@ -749,7 +749,7 @@ void memoryWrite(goon_char& final_movement, goon_int& movement_index, int* index
 }
 
 // Read and Return all value from EEPROM
-int memoryRead(goon_char& final_movement, goon_int& movement_index, int* index_counter)
+int memoryRead(char* final_movement, int* movement_index, int* index_counter)
 {
     // i = 0; i < temp_movement.size();
     // i = temp_movement.size() + 1; i < movement_index.size();
@@ -790,31 +790,31 @@ void start_gooning ()
 {
     // initialize arrays with std::array
     // gooning version
-    goon_char temp_movement;
-    goon_char final_movement;
+    char temp_movement[MAX_GOONS];
+    char final_movement[MAX_GOONS];
     
     // these 2 will utilise the same index, i.e. index_counter
-    goon_int movement_index;
-    goon_int junction_gooned;
+    int movement_index[MAX_GOONS];
+    int junction_gooned[MAX_GOONS];
 
     // Initialize the arrays if needed
-    memset(temp_movement.data(), 0, temp_movement.size());
-    memset(final_movement.data(), 0, final_movement.size());
-    memset(movement_index.data(), 0, movement_index.size());
-    memset(junction_gooned.data(), 0, junction_gooned.size());
+    memset(temp_movement, 0, sizeof(temp_movement));
+    memset(final_movement, 0, sizeof(final_movement));
+    memset(movement_index, 0, sizeof(movement_index));
+    memset(junction_gooned, 0, sizeof(junction_gooned));
 
     int index_counter = 0;
     int aura = 0;
 
     if (memoryRead(final_movement, movement_index, &index_counter) < 0)                    // if no gooning pattern found in memory then start a new goon pattern
     {
-        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &aura);
+        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
     }
     else
     {
-        memcpy(final_movement.data(), temp_movement.data(), final_movement.size());
+        memcpy(final_movement, temp_movement, sizeof(final_movement));
         aura = follow_gooning_path(final_movement, movement_index, &index_counter);
-        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &aura);
+        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
 
         if (strlen(temp_movement) < strlen(final_movement))
         {
