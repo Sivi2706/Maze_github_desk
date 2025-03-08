@@ -190,21 +190,21 @@ void keep_going_LeBron(char* temp_movement, int* movement_index, int* junction_g
                 turn180();
                 Serial.println("Turning 180");
                 Serial.println("Reorienting forward");
-                junction_gooned[index_counter] = 1;
+                junction_gooned[*index_counter] = 1;
             } 
             else if (temp_movement[i + 1] == 'L') 
             {
                 turnLeft90();
                 Serial.println("Turning 90 left");
                 Serial.println("Reorienting left");
-                junction_gooned[index_counter] = 2;
+                junction_gooned[*index_counter] = 2;
             } 
             else if (temp_movement[i + 1] == 'R') 
             {
                 turnRight90();
                 Serial.println("Turning 90 right");
                 Serial.println("Reorienting right");
-                junction_gooned[index_counter] = 3;
+                junction_gooned[*index_counter] = 3;
             }
         } 
         else 
@@ -260,44 +260,44 @@ int follow_Lebrons_footsteps(char* temp_movement, int* movement_index, int* inde
 }
 
 // EEPROM Memory Functions
-void memoryReset() {
-    Serial.println("Executing memoryReset()");
-    for (int i = 0; i < EEPROM.length(); i++) {
-        EEPROM.write(i, 0);
-    }
-    Serial.println("EEPROM reset complete.");
-}
+// void memoryReset() {
+//     Serial.println("Executing memoryReset()");
+//     for (int i = 0; i < EEPROM.length(); i++) {
+//         EEPROM.write(i, 0);
+//     }
+//     Serial.println("EEPROM reset complete.");
+// }
 
-void memoryWrite(char* final_movement, int* movement_index, int* index_counter) {
-    Serial.println("Executing memoryWrite()");
-    int addr = 0;
-    EEPROM.put(addr, final_movement);
-    addr += sizeof(final_movement);
-    EEPROM.put(addr, movement_index);
-    addr += sizeof(movement_index);
-    EEPROM.put(addr, *index_counter);
-    Serial.println("EEPROM write complete.");
-}
+// void memoryWrite(char* final_movement, int* movement_index, int* index_counter) {
+//     Serial.println("Executing memoryWrite()");
+//     int addr = 0;
+//     EEPROM.put(addr, final_movement);
+//     addr += sizeof(final_movement);
+//     EEPROM.put(addr, movement_index);
+//     addr += sizeof(movement_index);
+//     EEPROM.put(addr, *index_counter);
+//     Serial.println("EEPROM write complete.");
+// }
 
-int memoryRead(char* final_movement, int* movement_index, int* index_counter) {
-    Serial.println("Executing memoryRead()");
-    int addr = 0;
-    int check = 0;
+// int memoryRead(char* final_movement, int* movement_index, int* index_counter) {
+//     Serial.println("Executing memoryRead()");
+//     int addr = 0;
+//     int check = 0;
 
-    if (EEPROM.get(addr, check) == 0xFFFF) {
-        Serial.println("EEPROM is empty.");
-        return -1;  // EEPROM is empty
-    }
+//     if (EEPROM.get(addr, check) == 0xFFFF) {
+//         Serial.println("EEPROM is empty.");
+//         return -1;  // EEPROM is empty
+//     }
 
-    EEPROM.get(addr, final_movement);
-    addr += sizeof(final_movement);
-    EEPROM.get(addr, movement_index);
-    addr += sizeof(movement_index);
-    EEPROM.get(addr, *index_counter);
+//     EEPROM.get(addr, final_movement);
+//     addr += sizeof(final_movement);
+//     EEPROM.get(addr, movement_index);
+//     addr += sizeof(movement_index);
+//     EEPROM.get(addr, *index_counter);
 
-    Serial.println("EEPROM read complete.");
-    return 0;
-}
+//     Serial.println("EEPROM read complete.");
+//     return 0;
+// }
 
 void this_time_i_want_youyouyouyou_like_its_magnetic() 
 {
@@ -349,8 +349,8 @@ void setup() {
     ultrasonicSetup(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
     ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
     Serial.println("Setup complete.");
+    this_time_i_want_youyouyouyou_like_its_magnetic();
 }
 
 void loop() {
-    this_time_i_want_youyouyouyou_like_its_magnetic();
 }
