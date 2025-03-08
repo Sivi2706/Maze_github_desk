@@ -190,7 +190,7 @@ int getCurrentAbsoluteBearing() {
 }
 
 void turnRight90() {
-    int newBearing = currentBearing + 90;
+    int newBearing = currentBearing - 90;
     if (newBearing < 0) newBearing += 360;
     
     Serial.print("Turning right 90° from bearing ");
@@ -207,7 +207,7 @@ void turnRight90() {
     digitalWrite(IN4, HIGH);
     
     float startYaw = yaw;
-    float targetYaw = startYaw + 80.0;
+    float targetYaw = startYaw - 80.0;
     
     while (yaw > targetYaw) {
         updateMPU();
@@ -226,7 +226,7 @@ void turnRight90() {
 }
 
 void turnLeft90() {
-    int newBearing = currentBearing - 90;
+    int newBearing = currentBearing + 90;
     if (newBearing >= 360) newBearing -= 360;
     
     Serial.print("Turning left 90° from bearing ");
@@ -243,7 +243,7 @@ void turnLeft90() {
     digitalWrite(IN4, LOW);
     
     float startYaw = yaw;
-    float targetYaw = startYaw - 80.0;
+    float targetYaw = startYaw + 80.0;
     
     while (yaw < targetYaw) {
         updateMPU();
@@ -465,94 +465,67 @@ void updateDistance() {
 }
 
 // Algorithm Functions
-int back_it_up_LeBron(int back_index, char temp_movement[], int movement_index[], int* index_counter) 
-{
-    Serial.println("fucking turn 180");
+int back_it_up_LeBron(int back_index, char temp_movement[], int movement_index[], int* index_counter) {
+  Serial.println("fucking turn 180");
     turn180();
-    for (int i = back_index; i > movement_index[*index_counter]; i--) 
-    {
-        if (temp_movement[i] == 'F') 
-        {
-            Serial.println("back tracking forward");
+    for (int i = back_index; i > movement_index[*index_counter]; i--) {
+        if (temp_movement[i] == 'F') {
             MoveForward(100);
-        } 
-        else if (temp_movement[i] == 'L') 
-        {
-            Serial.println("back tracking right");
+        } else if (temp_movement[i] == 'L') {
+          Serial.println("retarded");
             turnRight90();
-        } 
-        else if (temp_movement[i] == 'R') 
-        {
-            Serial.println("back tracking left");
+        } else if (temp_movement[i] == 'R') {
             turnLeft90();
         }
     }
     return movement_index[*index_counter];
 }
 
-void keep_going_LeBron(char temp_movement[], int movement_index[], int junction_gooned[], int* index_counter, int* i) 
-{
+void keep_going_LeBron(char temp_movement[], int movement_index[], int junction_gooned[], int* index_counter, int* i) {
     int front, left, right;
-    for (; *i < MAX_GOONS; (*i)++) 
-    {
+    for (; *i < MAX_GOONS; (*i)++) {
         front = checkTheDih(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
         left = checkTheDih(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
         right = checkTheDih(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-        if (front == -1 && left == -1 && right == -1) 
-        {
+        if (front == -1 && left == -1 && right == -1) {
             temp_movement[*i] = '\0';
-            Serial.println("End Condition Reached");
+            Serial.println("chaochibai");
             break;
-        } 
-        else if (junction_gooned[*index_counter] < 1 && front) 
-        {
+        } else if (junction_gooned[*index_counter] < 1 && front) {
             if (left || right) movement_index[++(*index_counter)] = *i;
             MoveForward(255);
-            Serial.println("Moving Forwards");
+            Serial.println("niama");
             temp_movement[*i] = 'F';
-        } 
-        else if (junction_gooned[*index_counter] < 2 && left) 
-        {
+        } else if (junction_gooned[*index_counter] < 2 && left) {
             if (right) movement_index[++(*index_counter)] = *i;
             turnLeft90();
-            Serial.println("Turning left");
+            Serial.println("ganninia");
             temp_movement[*i] = 'L';
             MoveForward(255);
-            Serial.println("Moving Forwards");
             temp_movement[++(*i)] = 'F';
-        } 
-        else if (junction_gooned[*index_counter] < 3 && right) 
-        {
+        } else if (junction_gooned[*index_counter] < 3 && right) {
             turnRight90();
-            Serial.println("Turning right");
+            Serial.println("actually retarded");
+            Serial.println("sohai");
             temp_movement[*i] = 'R';
             MoveForward(255);
-            Serial.println("Moving Forwards");
             temp_movement[++(*i)] = 'F';
-        } 
-        else if (junction_gooned[*index_counter] == 3 || (junction_gooned[*index_counter] == 2 && !right)) 
-        {
-            junction_gooned[(*index_counter)--] = 0;
+        } else if ((junction_gooned[*index_counter] == 2 && !right) || junction_gooned[*index_counter] == 3) {
+            junction_gooned[*index_counter--] = 0;
             *i = back_it_up_LeBron(*i, temp_movement, movement_index, index_counter);
-            
-            if (temp_movement[*i + 1] == 'F') 
-            {
+            if (temp_movement[*i + 1] == 'F') {
+              Serial.println("gooner");
                 turn180();
-                Serial.println("Turning 180");
-                Serial.println("Reorienting forward");
+                Serial.println("chibai180");
                 junction_gooned[*index_counter] = 1;
-            } 
-            else if (temp_movement[*i + 1] == 'L') 
-            {
+            } else if (temp_movement[*i + 1] == 'L') {
                 turnLeft90();
-                Serial.println("Turning 90 left");
-                Serial.println("Reorienting left");
+                Serial.println("mamameiyoujiaoleft");
                 junction_gooned[*index_counter] = 2;
             } else if (temp_movement[*i + 1] == 'R') {
                 turnRight90();
-                Serial.println("Turning 90 right");
-                Serial.println("Reorienting right");
+                Serial.println("mf");
                 junction_gooned[*index_counter] = 3;
             }
         } else {

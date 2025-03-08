@@ -106,7 +106,7 @@ float getDistance(int trigPin, int echoPin) {
 
 inline int checkTheDih(int trigPin, int echoPin) {
     //if (getDistance(trigPin, echoPin) > 200) return -1;
-    return getDistance(trigPin, echoPin) > 10 ? 1 : 0;
+    return getDistance(trigPin, echoPin) <= 10 ? 0 : 1;
 }
 
 // MPU6050 Setup
@@ -189,8 +189,17 @@ int getCurrentAbsoluteBearing() {
     return absoluteBearing;
 }
 
+void stopMotors() {
+    isMovingForward = false;
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+    Serial.println("Stopped.");
+}
+
 void turnRight90() {
-    int newBearing = currentBearing + 90;
+    int newBearing = currentBearing - 90;
     if (newBearing < 0) newBearing += 360;
     
     Serial.print("Turning right 90° from bearing ");
@@ -207,7 +216,7 @@ void turnRight90() {
     digitalWrite(IN4, HIGH);
     
     float startYaw = yaw;
-    float targetYaw = startYaw + 80.0;
+    float targetYaw = startYaw - 80.0;
     
     while (yaw > targetYaw) {
         updateMPU();
@@ -222,11 +231,14 @@ void turnRight90() {
     Serial.println("Rough turn complete");
     
     currentBearing = newBearing;
+    // Assume alignToBearing smoothly finalizes the turn
+    // (see alignToBearing function below)
+    // This call can help refine the turn if needed.
     alignToBearing(newBearing);
 }
 
 void turnLeft90() {
-    int newBearing = currentBearing - 90;
+    int newBearing = currentBearing + 90;
     if (newBearing >= 360) newBearing -= 360;
     
     Serial.print("Turning left 90° from bearing ");
@@ -243,7 +255,7 @@ void turnLeft90() {
     digitalWrite(IN4, LOW);
     
     float startYaw = yaw;
-    float targetYaw = startYaw - 80.0;
+    float targetYaw = startYaw + 80.0;
     
     while (yaw < targetYaw) {
         updateMPU();
@@ -283,10 +295,6 @@ void turn180() {
 
     while (yaw < targetYaw) {
         updateMPU();
-        //Serial.print("Turning: Current Yaw = ");
-        //Serial.print(yaw);
-        //Serial.print(", Target = ");
-        //Serial.println(targetYaw);
         delay(10);
     }
 
@@ -298,21 +306,13 @@ void turn180() {
 }
 
 void alignToBearing(int targetBearing) {
-  Serial.println("Fucking aligning");
-    int currentAbsoluteBearing = getCurrentAbsoluteBearing();
+    Serial.println("Aligning...");
     float currentRelativeYaw = yaw - initialYaw;
     float normalizedYaw = normalizeYaw(currentRelativeYaw);
     
     float error = targetBearing - normalizedYaw;
     if (error > 180) error -= 360;
     if (error < -180) error += 360;
-    
-    //Serial.print("Aligning to bearing: ");
-    //Serial.print(targetBearing);
-    //Serial.print("°, Current normalized yaw: ");
-    //Serial.print(normalizedYaw);
-    //Serial.print("°, Error: ");
-    //Serial.println(error);
     
     const float BEARING_TOLERANCE = 2.0;
     
@@ -357,7 +357,7 @@ void alignToBearing(int targetBearing) {
 }
 
 void maintainBearing() {
-  Serial.println("fucking maintaining");
+    Serial.println("Maintaining bearing");
     if (!correctionEnabled) return;
     
     float currentRelativeYaw = yaw - initialYaw;
@@ -391,12 +391,12 @@ void maintainBearing() {
     }
 }
 
+// Updated MoveForward: always reset distance tracking for each new forward move.
 void MoveForward(int PWM) {
-    if (!isMovingForward && !targetReached) {
-        leftTotalDistance = 0.0;
-        rightTotalDistance = 0.0;
-        targetReached = false;
-    }
+    // Reset distances and flag for the new movement segment
+    leftTotalDistance = 0.0;
+    rightTotalDistance = 0.0;
+    targetReached = false;
 
     isMovingForward = true;
     analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
@@ -430,7 +430,7 @@ void MoveForward(int PWM) {
         updateDistance();
 
         float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
-        if (avgDistance >= TARGET_DISTANCE && !targetReached) {
+        if (avgDistance >= TARGET_DISTANCE) {
             stopMotors();
             targetReached = true;
             break;
@@ -438,15 +438,6 @@ void MoveForward(int PWM) {
 
         delay(5);
     }
-}
-
-void stopMotors() {
-    isMovingForward = false;
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, LOW);
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, LOW);
-    Serial.println("Stopped.");
 }
 
 void updateDistance() {
@@ -457,7 +448,7 @@ void updateDistance() {
         Serial.print("Avg Distance: ");
         Serial.println(avgDistance);
         leftPulses = rightPulses = 0;
-        if (avgDistance >= TARGET_DISTANCE && !targetReached) {
+        if (avgDistance >= TARGET_DISTANCE) {
             stopMotors();
             targetReached = true;
         }
@@ -465,109 +456,80 @@ void updateDistance() {
 }
 
 // Algorithm Functions
-int back_it_up_LeBron(int back_index, char temp_movement[], int movement_index[], int* index_counter) 
-{
-    Serial.println("fucking turn 180");
+int back_it_up_LeBron(int back_index, char temp_movement[], int movement_index[], int* index_counter) {
+    Serial.println("Executing turn 180");
     turn180();
-    for (int i = back_index; i > movement_index[*index_counter]; i--) 
-    {
-        if (temp_movement[i] == 'F') 
-        {
-            Serial.println("back tracking forward");
+    for (int i = back_index; i > movement_index[*index_counter]; i--) {
+        if (temp_movement[i] == 'F') {
             MoveForward(100);
-        } 
-        else if (temp_movement[i] == 'L') 
-        {
-            Serial.println("back tracking right");
+        } else if (temp_movement[i] == 'L') {
+            Serial.println("Performing right turn");
             turnRight90();
-        } 
-        else if (temp_movement[i] == 'R') 
-        {
-            Serial.println("back tracking left");
+        } else if (temp_movement[i] == 'R') {
             turnLeft90();
         }
     }
     return movement_index[*index_counter];
 }
 
-void keep_going_LeBron(char temp_movement[], int movement_index[], int junction_gooned[], int* index_counter, int* i) 
-{
+void keep_going_LeBron(char temp_movement[], int movement_index[], int junction_gooned[], int* index_counter, int* i) {
     int front, left, right;
-    for (; *i < MAX_GOONS; (*i)++) 
-    {
+    for (; *i < MAX_GOONS; (*i)++) {
         front = checkTheDih(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
         left = checkTheDih(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
         right = checkTheDih(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-        if (front == -1 && left == -1 && right == -1) 
-        {
+        if (front == -1 && left == -1 && right == -1) {
             temp_movement[*i] = '\0';
-            Serial.println("End Condition Reached");
+            Serial.println("No path detected");
             break;
-        } 
-        else if (junction_gooned[*index_counter] < 1 && front) 
-        {
+        } else if (junction_gooned[*index_counter] < 1 && front) {
             if (left || right) movement_index[++(*index_counter)] = *i;
             MoveForward(255);
-            Serial.println("Moving Forwards");
+            Serial.println("Moving forward");
             temp_movement[*i] = 'F';
-        } 
-        else if (junction_gooned[*index_counter] < 2 && left) 
-        {
+        } else if (junction_gooned[*index_counter] < 2 && left) {
             if (right) movement_index[++(*index_counter)] = *i;
             turnLeft90();
             Serial.println("Turning left");
             temp_movement[*i] = 'L';
             MoveForward(255);
-            Serial.println("Moving Forwards");
             temp_movement[++(*i)] = 'F';
-        } 
-        else if (junction_gooned[*index_counter] < 3 && right) 
-        {
+        } else if (junction_gooned[*index_counter] < 3 && right) {
             turnRight90();
             Serial.println("Turning right");
             temp_movement[*i] = 'R';
             MoveForward(255);
-            Serial.println("Moving Forwards");
             temp_movement[++(*i)] = 'F';
-        } 
-        else if (junction_gooned[*index_counter] == 3 || (junction_gooned[*index_counter] == 2 && !right)) 
-        {
-            junction_gooned[(*index_counter)--] = 0;
+        } else if ((junction_gooned[*index_counter] == 2 && !right) || junction_gooned[*index_counter] == 3) {
+            junction_gooned[*index_counter--] = 0;
             *i = back_it_up_LeBron(*i, temp_movement, movement_index, index_counter);
-            
-            if (temp_movement[*i + 1] == 'F') 
-            {
+            if (temp_movement[*i + 1] == 'F') {
+                Serial.println("Performing 180 turn");
                 turn180();
-                Serial.println("Turning 180");
-                Serial.println("Reorienting forward");
                 junction_gooned[*index_counter] = 1;
-            } 
-            else if (temp_movement[*i + 1] == 'L') 
-            {
+            } else if (temp_movement[*i + 1] == 'L') {
                 turnLeft90();
-                Serial.println("Turning 90 left");
-                Serial.println("Reorienting left");
+                Serial.println("Turning left after backup");
                 junction_gooned[*index_counter] = 2;
             } else if (temp_movement[*i + 1] == 'R') {
                 turnRight90();
-                Serial.println("Turning 90 right");
-                Serial.println("Reorienting right");
+                Serial.println("Turning right after backup");
                 junction_gooned[*index_counter] = 3;
             }
         } else {
             *i = back_it_up_LeBron(*i, temp_movement, movement_index, index_counter);
             if (temp_movement[*i + 1] == 'F') {
                 turn180();
-                Serial.println("ganninia180");
+                Serial.println("Executing 180 turn");
                 junction_gooned[*index_counter] = 1;
             } else if (temp_movement[*i + 1] == 'L') {
                 turnLeft90();
-                Serial.println("sohaileft");
+                Serial.println("Turning left after backup");
                 junction_gooned[*index_counter] = 2;
             } else if (temp_movement[*i + 1] == 'R') {
                 turnRight90();
-                Serial.println("chibairight");
+                Serial.println("Turning right after backup");
                 junction_gooned[*index_counter] = 3;
             }
         }
@@ -578,7 +540,7 @@ int follow_gooning_path(char temp_movement[], int movement_index[], int* index_c
     int i;
     for (i = 0; i < movement_index[*index_counter - 1] + 1; i++) {
         if (temp_movement[i] == 'F') {
-          MoveForward(100);
+            MoveForward(100);
         } else if (temp_movement[i] == 'L') {
             turnLeft90();
             MoveForward(100);
@@ -655,9 +617,8 @@ void start_gooning() {
 
     keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &aura);
 
-
     /*
-    if (memoryRead(final_movement, movement_index, &index_counter) < 0) {
+    if (memoryRead(final_movement, movement_index, &index_counter) < 0) 
         keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, &aura);
     } else {
         // Copy array without memcpy
@@ -714,9 +675,10 @@ void setup() {
 bool done = false;
 
 void loop() {
-  if (!done) {
-    turnLeft90();
-
-    maintainBearing();
-  }
+    if (!done) {
+        turnLeft90();
+        maintainBearing();
+    }
 }
+
+#end of code
