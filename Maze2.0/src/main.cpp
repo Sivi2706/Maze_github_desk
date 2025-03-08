@@ -41,7 +41,7 @@ float getDistance(int trigPin, int echoPin) {
     return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
 }
 
-inline int checkTheDih(int trigPin, int echoPin) {
+inline int rizzCheck(int trigPin, int echoPin) {
     float distance = getDistance(trigPin, echoPin);
     Serial.print("Distance: ");
     Serial.print(distance);
@@ -110,72 +110,122 @@ void turn180() {
 }
 
 // Maze Navigation Algorithm
-int back_it_up_LeBron(int back_index, char* temp_movement, int* movement_index, int* index_counter) {
+int back_it_up_LeBron(int back_index, char* temp_movement, int* movement_index, int* index_counter) 
+{
     Serial.println("Executing back_it_up_LeBron()");
     turn180();  // Turn away from the wall
 
     // Backtrack to the last junction
-    for (int i = back_index; i > movement_index[*index_counter]; i--) {
+    for (int i = back_index; i > movement_index[*index_counter]; i--) 
+    {
         Serial.print("Backtracking step: ");
         Serial.println(temp_movement[i]);
-        if (temp_movement[i] == 'F') {
+        if (temp_movement[i] == 'F') 
+        {
             MoveForward(100);
-        } else if (temp_movement[i] == 'L') {
+        } 
+        else if (temp_movement[i] == 'L') 
+        {
             turnRight90();  // Opposite direction
-        } else if (temp_movement[i] == 'R') {
+        } 
+        else if (temp_movement[i] == 'R') 
+        {
             turnLeft90();   // Opposite direction
         }
     }
-
     // Return to the most recent junction
     Serial.println("Backtracking complete.");
     return movement_index[*index_counter];
 }
 
-void keep_going_LeBron(char* temp_movement, int* movement_index, int* junction_gooned, int* index_counter, int i) {
+void keep_going_LeBron(char* temp_movement, int* movement_index, int* junction_gooned, int* index_counter, int i) 
+{
     Serial.println("Executing keep_going_LeBron()");
     int front, left, right;
 
-    for (i = i; i < MAX_GOONS; i++) {
-        front = checkTheDih(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-        left = checkTheDih(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-        right = checkTheDih(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+    for (i = i; i < MAX_GOONS; i++) 
+    {
+        front = rizzCheck(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+        left = rizzCheck(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+        right = rizzCheck(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-        if (front == -1 && left == -1 && right == -1) {  // End of maze
+        if (front == -1 && left == -1 && right == -1)                       // End of maze
+        {
             Serial.println("End of maze reached.");
             temp_movement[i] = '\0';  // Null terminate the array
             break;
-        } else if (junction_gooned[*index_counter] < 1 && front) {  // Forward path
+        } 
+        else if (junction_gooned[*index_counter] < 1 && front)              // Forward path
+        {
             if (left || right) movement_index[++(*index_counter)] = i;
             MoveForward(255);
             temp_movement[i] = 'F';
             Serial.println("Movement: F (Forward)");
-        } else if (junction_gooned[*index_counter] < 2 && left) {  // Left path
+        } 
+        else if (junction_gooned[*index_counter] < 2 && left)               // Left path
+        {
             if (right) movement_index[++(*index_counter)] = i;
             turnLeft90();
             temp_movement[i] = 'L';
             MoveForward(255);
             temp_movement[i++] = 'F';
             Serial.println("Movement: L (Left)");
-        } else if (junction_gooned[*index_counter] < 3 && right) {  // Right path
+        } 
+        else if (junction_gooned[*index_counter] < 3 && right)              // Right path
+        {
             turnRight90();
             temp_movement[i] = 'R';
             MoveForward(255);
             temp_movement[i++] = 'F';
             Serial.println("Movement: R (Right)");
-        } else {  // Dead end or backtrack
+        }
+        // if all routes of the junction have been explored and are dead ends, then backtrack
+        else if (junction_gooned[*index_counter] == 3 || (junction_gooned[*index_counter] == 2 && !right)) 
+        {
+            junction_gooned[(*index_counter)--] = 0;
+            i = back_it_up_LeBron(i, temp_movement, movement_index, index_counter);
+            
+            if (temp_movement[i + 1] == 'F') 
+            {
+                turn180();
+                Serial.println("Turning 180");
+                Serial.println("Reorienting forward");
+                junction_gooned[index_counter] = 1;
+            } 
+            else if (temp_movement[i + 1] == 'L') 
+            {
+                turnLeft90();
+                Serial.println("Turning 90 left");
+                Serial.println("Reorienting left");
+                junction_gooned[index_counter] = 2;
+            } 
+            else if (temp_movement[i + 1] == 'R') 
+            {
+                turnRight90();
+                Serial.println("Turning 90 right");
+                Serial.println("Reorienting right");
+                junction_gooned[index_counter] = 3;
+            }
+        } 
+        else 
+        {
             Serial.println("Dead end detected. Backtracking...");
             i = back_it_up_LeBron(i, temp_movement, movement_index, index_counter);
 
-            if (temp_movement[i + 1] == 'F') {
+            if (temp_movement[i + 1] == 'F') 
+            {
                 turn180();
                 junction_gooned[*index_counter] = 1;
                 Serial.println("Reorienting: F (Forward)");
-            } else if (temp_movement[i + 1] == 'L') {
+            } 
+            else if (temp_movement[i + 1] == 'L') 
+            {
                 turnLeft90();
                 junction_gooned[*index_counter] = 2;
                 Serial.println("Reorienting: L (Left)");
-            } else if (temp_movement[i + 1] == 'R') {
+            } 
+            else if (temp_movement[i + 1] == 'R') 
+            {
                 turnRight90();
                 junction_gooned[*index_counter] = 3;
                 Serial.println("Reorienting: R (Right)");
@@ -184,18 +234,24 @@ void keep_going_LeBron(char* temp_movement, int* movement_index, int* junction_g
     }
 }
 
-int follow_gooning_path(char* temp_movement, int* movement_index, int* index_counter) {
-    Serial.println("Executing follow_gooning_path()");
+int follow_Lebrons_footsteps(char* temp_movement, int* movement_index, int* index_counter) {
+    Serial.println("Executing follow_Lebrons_footsteps()");
     int i;
-    for (i = 0; i < movement_index[*index_counter - 1] + 1; i++) {
+    for (i = 0; i < movement_index[*index_counter - 1] + 1; i++) 
+    {
         Serial.print("Following path step: ");
         Serial.println(temp_movement[i]);
-        if (temp_movement[i] == 'F') {
+        if (temp_movement[i] == 'F') 
+        {
             MoveForward(100);
-        } else if (temp_movement[i] == 'L') {
+        } 
+        else if (temp_movement[i] == 'L') 
+        {
             turnLeft90();
             MoveForward(100);
-        } else if (temp_movement[i] == 'R') {
+        } 
+        else if (temp_movement[i] == 'R') 
+        {
             turnRight90();
             MoveForward(100);
         }
@@ -243,8 +299,9 @@ int memoryRead(char* final_movement, int* movement_index, int* index_counter) {
     return 0;
 }
 
-void start_gooning() {
-    Serial.println("Executing start_gooning()");
+void this_time_i_want_youyouyouyou_like_its_magnetic() 
+{
+    Serial.println("this_time_i_want_youyouyouyou_like_its_magnetic");
     char temp_movement[MAX_GOONS];
     char final_movement[MAX_GOONS];
     int movement_index[MAX_GOONS];
@@ -257,21 +314,27 @@ void start_gooning() {
     memset(movement_index, 0, sizeof(movement_index));
     memset(junction_gooned, 0, sizeof(junction_gooned));
 
-    if (memoryRead(final_movement, movement_index, &index_counter) < 0) {
-        Serial.println("No saved path found. Exploring new path...");
-        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
-    } else {
-        Serial.println("Saved path found. Following path...");
-        memcpy(final_movement, temp_movement, sizeof(final_movement));
-        aura = follow_gooning_path(final_movement, movement_index, &index_counter);
-        keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
+    keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
 
-        if (strlen(temp_movement) < strlen(final_movement)) {
-            Serial.println("New shorter path found. Updating EEPROM...");
-            memoryReset();
-            memoryWrite(temp_movement, movement_index, &index_counter);
-        }
-    }
+    // if (memoryRead(final_movement, movement_index, &index_counter) < 0) 
+    // {
+    //     Serial.println("No saved path found. Exploring new path...");
+    //     keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
+    // }
+    // else 
+    // {
+    //     Serial.println("Saved path found. Following path...");
+    //     memcpy(final_movement, temp_movement, sizeof(final_movement));
+    //     aura = follow_Lebrons_footsteps(final_movement, movement_index, &index_counter);
+    //     keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
+
+    //     if (strlen(temp_movement) < strlen(final_movement)) 
+    //     {
+    //         Serial.println("New shorter path found. Updating EEPROM...");
+    //         memoryReset();
+    //         memoryWrite(temp_movement, movement_index, &index_counter);
+    //     }
+    // }
 }
 
 void setup() {
@@ -289,5 +352,5 @@ void setup() {
 }
 
 void loop() {
-    start_gooning();
+    this_time_i_want_youyouyouyou_like_its_magnetic();
 }
