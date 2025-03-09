@@ -81,6 +81,7 @@ int movement_index[MAX_GOONS];
 int junction_gooned[MAX_GOONS];
 int index_counter = 0;
 int aura_points = 0;
+bool is_LeBron_done = false;
 
 void calculateRPM() {
     unsigned long currentTime = millis();
@@ -112,12 +113,13 @@ float getDistance(int trigPin, int echoPin) {
     return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
 }
 
-inline int rizzCheck(int trigPin, int echoPin) {
+int rizzCheck(int trigPin, int echoPin) {
     float distance = getDistance(trigPin, echoPin);
     Serial.print("Distance: ");
     Serial.print(distance);
     Serial.println(" cm");
-    return distance <= 10 ? 0 : 1; // Threshold distance for junction detection
+    if (distance > 200) return -1;
+    return distance > 10 ? 1 : 0; // Threshold distance for junction detection
 }
 
 // MPU6050 Setup
@@ -482,6 +484,13 @@ void updateDistance() {
     }
 }
 
+int arrLen(char *arr)
+{
+    int i = 0;
+    while (arr[i] != '\0') i++;
+    return i;
+}
+
 // Maze Navigation Algorithm
 int back_it_up_LeBron(int back_index) 
 {
@@ -524,7 +533,7 @@ void keep_going_LeBron(int i)
     {
         Serial.println("End of maze reached.");
         temp_movement[i] = '\0';  // Null terminate the array
-        // break;
+        is_LeBron_done = true;
     } 
     else if (junction_gooned[index_counter] < 1 && front)              // Forward path
     {
@@ -703,8 +712,12 @@ void this_time_i_want_youyouyouyou_like_its_magnetic()
     memset(movement_index, 0, sizeof(movement_index));
     memset(junction_gooned, 0, sizeof(junction_gooned));
 
-    // if (memoryRead() == -1) aura_points = 0;
-    // else aura_points = 1;
+    if (memoryRead() == -1) aura_points = 0;
+    else 
+    {
+        aura_points = 1;
+        memcpy(temp_movement, final_movement, sizeof(final_movement));
+    }
 }
 
 void setup() {
@@ -726,13 +739,20 @@ void loop()
 {
     keep_going_LeBron(0);
 
-    // if (aura_points = 0) 
-    // {
-    //     keep_going_LeBron(0);
-    // }
-    // else
-    // {
-    //     int shawarma = follow_Lebrons_footsteps();
-    //     keep_going_LeBron(shawarma);
-    // }
+    if (aura_points = 0) keep_going_LeBron(0);
+    else
+    {
+        int shawarma = follow_Lebrons_footsteps();
+        keep_going_LeBron(shawarma);
+    }
+
+    if (is_LeBron_done == true)
+    {
+        if (arrLen(temp_movement) < arrLen(final_movement))
+        {
+            memcpy(final_movement, temp_movement, sizeof(temp_movement));
+            memoryReset();
+            memoryWrite();
+        }
+    }
 }
