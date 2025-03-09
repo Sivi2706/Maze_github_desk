@@ -80,7 +80,7 @@ char final_movement[MAX_GOONS];
 int movement_index[MAX_GOONS];
 int junction_gooned[MAX_GOONS];
 int index_counter = 0;
-int aura = 0;
+int aura_points = 0;
 
 void calculateRPM() {
     unsigned long currentTime = millis();
@@ -483,13 +483,13 @@ void updateDistance() {
 }
 
 // Maze Navigation Algorithm
-int back_it_up_LeBron(int back_index, char* temp_movement, int* movement_index, int* index_counter) 
+int back_it_up_LeBron(int back_index) 
 {
     Serial.println("Executing back_it_up_LeBron()");
     turn180();  // Turn away from the wall
 
     // Backtrack to the last junction
-    for (int i = back_index; i > movement_index[*index_counter]; i--) 
+    for (int i = back_index; i > movement_index[index_counter]; i--) 
     {
         Serial.print("Backtracking step: ");
         Serial.println(temp_movement[i]);
@@ -508,234 +508,19 @@ int back_it_up_LeBron(int back_index, char* temp_movement, int* movement_index, 
     }
     // Return to the most recent junction
     Serial.println("Backtracking complete.");
-    return movement_index[*index_counter];
+    return movement_index[index_counter];
 }
 
-void keep_going_LeBron(char* temp_movement, int* movement_index, int* junction_gooned, int* index_counter, int i) 
+void keep_going_LeBron(int i) 
 {
     Serial.println("Executing keep_going_LeBron()");
     int front, left, right;
-
-    for (i = i; i < MAX_GOONS; i++) 
-    {
-        front = rizzCheck(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-        left = rizzCheck(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-        right = rizzCheck(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
-
-        if (front == -1 && left == -1 && right == -1)                       // End of maze
-        {
-            Serial.println("End of maze reached.");
-            temp_movement[i] = '\0';  // Null terminate the array
-            break;
-        } 
-        else if (junction_gooned[*index_counter] < 1 && front)              // Forward path
-        {
-            if (left || right) movement_index[++(*index_counter)] = i;
-            MoveForward(255);
-            temp_movement[i] = 'F';
-            Serial.println("Movement: F (Forward)");
-        } 
-        else if (junction_gooned[*index_counter] < 2 && left)               // Left path
-        {
-            if (right) movement_index[++(*index_counter)] = i;
-            turnLeft90();
-            temp_movement[i] = 'L';
-            MoveForward(255);
-            temp_movement[i++] = 'F';
-            Serial.println("Movement: L (Left)");
-        } 
-        else if (junction_gooned[*index_counter] < 3 && right)              // Right path
-        {
-            turnRight90();
-            temp_movement[i] = 'R';
-            MoveForward(255);
-            temp_movement[i++] = 'F';
-            Serial.println("Movement: R (Right)");
-        }
-        // if all routes of the junction have been explored and are dead ends, then backtrack
-        else if (junction_gooned[*index_counter] == 3 || (junction_gooned[*index_counter] == 2 && !right)) 
-        {
-            junction_gooned[(*index_counter)--] = 0;
-            i = back_it_up_LeBron(i, temp_movement, movement_index, index_counter);
-            
-            if (temp_movement[i + 1] == 'F') 
-            {
-                turn180();
-                Serial.println("Turning 180");
-                Serial.println("Reorienting forward");
-                junction_gooned[*index_counter] = 1;
-            } 
-            else if (temp_movement[i + 1] == 'L') 
-            {
-                turnLeft90();
-                Serial.println("Turning 90 left");
-                Serial.println("Reorienting left");
-                junction_gooned[*index_counter] = 2;
-            } 
-            else if (temp_movement[i + 1] == 'R') 
-            {
-                turnRight90();
-                Serial.println("Turning 90 right");
-                Serial.println("Reorienting right");
-                junction_gooned[*index_counter] = 3;
-            }
-        } 
-        else 
-        {
-            Serial.println("Dead end detected. Backtracking...");
-            i = back_it_up_LeBron(i, temp_movement, movement_index, index_counter);
-
-            if (temp_movement[i + 1] == 'F') 
-            {
-                turn180();
-                junction_gooned[*index_counter] = 1;
-                Serial.println("Reorienting: F (Forward)");
-            } 
-            else if (temp_movement[i + 1] == 'L') 
-            {
-                turnLeft90();
-                junction_gooned[*index_counter] = 2;
-                Serial.println("Reorienting: L (Left)");
-            } 
-            else if (temp_movement[i + 1] == 'R') 
-            {
-                turnRight90();
-                junction_gooned[*index_counter] = 3;
-                Serial.println("Reorienting: R (Right)");
-            }
-        }
-    }
-}
-
-int follow_Lebrons_footsteps(char* temp_movement, int* movement_index, int* index_counter) 
-{
-    Serial.println("Executing follow_Lebrons_footsteps()");
-    int i;
-    for (i = 0; i < movement_index[*index_counter - 1] + 1; i++) 
-    {
-        Serial.print("Following path step: ");
-        Serial.println(temp_movement[i]);
-        if (temp_movement[i] == 'F') 
-        {
-            MoveForward(100);
-        } 
-        else if (temp_movement[i] == 'L') 
-        {
-            turnLeft90();
-            MoveForward(100);
-        } 
-        else if (temp_movement[i] == 'R') 
-        {
-            turnRight90();
-            MoveForward(100);
-        }
-    }
-    return i + 1;
-}
-
-// EEPROM Memory Functions
-void memoryReset() {
-    Serial.println("Executing memoryReset()");
-    for (int i = 0; i < EEPROM.length(); i++) {
-        EEPROM.write(i, 0);
-    }
-    Serial.println("EEPROM reset complete.");
-}
-
-void memoryWrite(char* final_movement, int* movement_index, int* index_counter) {
-    Serial.println("Executing memoryWrite()");
-    int addr = 0;
-    EEPROM.put(addr, final_movement);
-    addr += sizeof(final_movement);
-    EEPROM.put(addr, movement_index);
-    addr += sizeof(movement_index);
-    EEPROM.put(addr, *index_counter);
-    Serial.println("EEPROM write complete.");
-}
-
-int memoryRead(char* final_movement, int* movement_index, int* index_counter) {
-    Serial.println("Executing memoryRead()");
-    int addr = 0;
-    int check = 0;
-
-    if (EEPROM.get(addr, check) == 0xFFFF) {
-        Serial.println("EEPROM is empty.");
-        return -1;  // EEPROM is empty
-    }
-
-    EEPROM.get(addr, final_movement);
-    addr += sizeof(final_movement);
-    EEPROM.get(addr, movement_index);
-    addr += sizeof(movement_index);
-    EEPROM.get(addr, *index_counter);
-
-    Serial.println("EEPROM read complete.");
-    return 0;
-}
-
-void this_time_i_want_youyouyouyou_like_its_magnetic() 
-{
-    Serial.println("this_time_i_want_youyouyouyou_like_its_magnetic");
-    // char temp_movement[MAX_GOONS];
-    // char final_movement[MAX_GOONS];
-    // int movement_index[MAX_GOONS];
-    // int junction_gooned[MAX_GOONS];
-    // int index_counter = 0;
-    // int aura = 0;
-
-    memset(temp_movement, 0, sizeof(temp_movement));
-    memset(final_movement, 0, sizeof(final_movement));
-    memset(movement_index, 0, sizeof(movement_index));
-    memset(junction_gooned, 0, sizeof(junction_gooned));
-
-    // keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
-
-    // if (memoryRead(final_movement, movement_index, &index_counter) < 0) 
-    // {
-    //     Serial.println("No saved path found. Exploring new path...");
-    //     keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
-    // }
-    // else 
-    // {
-    //     Serial.println("Saved path found. Following path...");
-    //     memcpy(final_movement, temp_movement, sizeof(final_movement));
-    //     aura = follow_Lebrons_footsteps(final_movement, movement_index, &index_counter);
-    //     keep_going_LeBron(temp_movement, movement_index, junction_gooned, &index_counter, aura);
-
-    //     if (strlen(temp_movement) < strlen(final_movement)) 
-    //     {
-    //         Serial.println("New shorter path found. Updating EEPROM...");
-    //         memoryReset();
-    //         memoryWrite(temp_movement, movement_index, &index_counter);
-    //     }
-    // }
-}
-
-void setup() {
-    Serial.begin(115200);
-    pinMode(IN1, OUTPUT);
-    pinMode(IN2, OUTPUT);
-    pinMode(IN3, OUTPUT);
-    pinMode(IN4, OUTPUT);
-    pinMode(FNA, OUTPUT);
-    pinMode(FNB, OUTPUT);
-    ultrasonicSetup(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    ultrasonicSetup(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-    ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
-    Serial.println("Setup complete.");
-    this_time_i_want_youyouyouyou_like_its_magnetic();
-}
-
-void loop() 
-{
-    Serial.println("Executing keep_going_LeBron()");
-    int front, left, right, i = 0;
 
     front = rizzCheck(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
     left = rizzCheck(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
     right = rizzCheck(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-    if (front == -1 && left == -1 && right == -1)                       // End of maze
+    if (front == -1 && left == -1 && right == -1)                      // End of maze
     {
         Serial.println("End of maze reached.");
         temp_movement[i] = '\0';  // Null terminate the array
@@ -765,38 +550,19 @@ void loop()
         temp_movement[i++] = 'F';
         Serial.println("Movement: R (Right)");
     }
-    // if all routes of the junction have been explored and are dead ends, then backtrack
-    else if (junction_gooned[index_counter] == 3 || (junction_gooned[index_counter] == 2 && !right)) 
-    {
-        junction_gooned[(index_counter)--] = 0;
-        i = back_it_up_LeBron(i, temp_movement, movement_index, &index_counter);
-        
-        if (temp_movement[i + 1] == 'F') 
-        {
-            turn180();
-            Serial.println("Turning 180");
-            Serial.println("Reorienting forward");
-            junction_gooned[index_counter] = 1;
-        } 
-        else if (temp_movement[i + 1] == 'L') 
-        {
-            turnLeft90();
-            Serial.println("Turning 90 left");
-            Serial.println("Reorienting left");
-            junction_gooned[index_counter] = 2;
-        } 
-        else if (temp_movement[i + 1] == 'R') 
-        {
-            turnRight90();
-            Serial.println("Turning 90 right");
-            Serial.println("Reorienting right");
-            junction_gooned[index_counter] = 3;
-        }
-    } 
     else 
     {
-        Serial.println("Dead end detected. Backtracking...");
-        i = back_it_up_LeBron(i, temp_movement, movement_index, &index_counter);
+        // special case: when LeBron has returned to a junction that has all of its junctions explored
+        // AND THEY ARE ALL DEAD ENDS
+        if (junction_gooned[index_counter] == 3 || (junction_gooned[index_counter] == 2 && !right)) 
+        {
+            // if LeBron is in this special case, 
+            // then reset junction_gooned to 0 and decrement before backtracking to previous junction
+            junction_gooned[(index_counter)--] = 0;
+        }
+
+        Serial.println("Backtracking...");
+        i = back_it_up_LeBron(i);
 
         if (temp_movement[i + 1] == 'F') 
         {
@@ -817,4 +583,156 @@ void loop()
             Serial.println("Reorienting: R (Right)");
         }
     }
+}
+
+int follow_Lebrons_footsteps() 
+{
+    Serial.println("Executing follow_Lebrons_footsteps()");
+    int i;
+
+    // Follow LeBron's recorded movement up until the 2nd last juntion, i.e. movement_index[index_counter - 1]
+    // + 1 to include the last movement to reach the 2nd last junction
+    for (i = 0; i < movement_index[index_counter - 1] + 1; i++) 
+    {
+        Serial.print("Following path step: ");
+        Serial.println(temp_movement[i]);
+        if (temp_movement[i] == 'F') 
+        {
+            MoveForward(100);
+        } 
+        else if (temp_movement[i] == 'L') 
+        {
+            turnLeft90();
+            MoveForward(100);
+        } 
+        else if (temp_movement[i] == 'R') 
+        {
+            turnRight90();
+            MoveForward(100);
+        }
+    }
+
+    int right = rizzCheck(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+
+    // special case: when LeBron has returned to a junction that has all of its junctions explored
+    // *** there is actually a route at this junction that leads to the exit ***
+    // *** so we cannot reset junction_gooned to 0 ***
+    if (junction_gooned[index_counter] == 3 || (junction_gooned[index_counter] == 2 && !right)) 
+    {
+        // decrement index_counter but do not set junction_gooned[index_counter] to 0
+        // then back track to previous junction
+        --index_counter;
+        Serial.println("Backtracking...");
+        i = back_it_up_LeBron(i);
+    }
+
+    // set junction_gooned flag only to indicate that in previous movement pattern
+    // LeBron has gone through this junction to reach the end of the maze
+    if (temp_movement[i + 1] == 'F') 
+    {
+        junction_gooned[index_counter] = 1;
+    } 
+    else if (temp_movement[i + 1] == 'L') 
+    {
+        junction_gooned[index_counter] = 2;
+    }
+    else if (temp_movement[i + 1] == 'R') 
+    {
+        junction_gooned[index_counter] = 3;
+    }
+
+    return i + 1;
+}
+
+// EEPROM Memory Functions
+void memoryReset() 
+{
+    Serial.println("Executing memoryReset()");
+    for (int i = 0; i < EEPROM.length(); i++) {
+        EEPROM.write(i, 0);
+    }
+    Serial.println("EEPROM reset complete.");
+}
+
+void memoryWrite() 
+{
+    Serial.println("Executing memoryWrite()");
+    int addr = 0;
+
+    EEPROM.put(addr, final_movement);
+    addr += sizeof(final_movement);
+
+    EEPROM.put(addr, movement_index);
+    addr += sizeof(movement_index);
+
+    EEPROM.put(addr, index_counter);
+
+    Serial.println("EEPROM write complete.");
+}
+
+int memoryRead() 
+{
+    Serial.println("Executing memoryRead()");
+    int addr = 0;
+    int check = 0;
+
+    if (EEPROM.get(addr, check) == 0xFFFF) 
+    {
+        Serial.println("EEPROM is empty.");
+        return -1;  // EEPROM is empty
+    }
+
+    EEPROM.get(addr, final_movement);
+    addr += sizeof(final_movement);
+
+    EEPROM.get(addr, movement_index);
+    addr += sizeof(movement_index);
+
+    EEPROM.get(addr, index_counter);
+
+    Serial.println("EEPROM read complete.");
+    return 0;
+}
+
+void this_time_i_want_youyouyouyou_like_its_magnetic() 
+{
+    Serial.println("this_time_i_want_youyouyouyou_like_its_magnetic");
+
+    memset(temp_movement, 0, sizeof(temp_movement));
+    memset(final_movement, 0, sizeof(final_movement));
+    memset(movement_index, 0, sizeof(movement_index));
+    memset(junction_gooned, 0, sizeof(junction_gooned));
+
+    // if (memoryRead() == -1) aura_points = 0;
+    // else aura_points = 1;
+}
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(IN1, OUTPUT);
+    pinMode(IN2, OUTPUT);
+    pinMode(IN3, OUTPUT);
+    pinMode(IN4, OUTPUT);
+    pinMode(FNA, OUTPUT);
+    pinMode(FNB, OUTPUT);
+    ultrasonicSetup(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    ultrasonicSetup(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+    Serial.println("Setup complete.");
+    this_time_i_want_youyouyouyou_like_its_magnetic();
+}
+
+void loop() 
+{
+    keep_going_LeBron(0);
+
+    // if (aura_points = 0) 
+    // {
+    //     keep_going_LeBron(0);
+    // }
+    // else
+    // {
+    //     int shawarma = follow_Lebrons_footsteps();
+    //     keep_going_LeBron(shawarma);
+    // }
 }
