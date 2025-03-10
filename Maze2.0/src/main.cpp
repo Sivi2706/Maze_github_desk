@@ -31,7 +31,7 @@ void move_forward()
         Serial.println(i);
     }
 
-    delay(1000);
+    delay(10000);
 }
 
 void turn_left_90()
@@ -43,7 +43,7 @@ void turn_left_90()
         Serial.println(i);
     }
 
-    delay(1000);
+    delay(10000);
 }
 
 void turn_right_90()
@@ -55,7 +55,7 @@ void turn_right_90()
         Serial.println(i);
     }
 
-    delay(1000);
+    delay(10000);
 }
 
 void turn_180()
@@ -67,7 +67,7 @@ void turn_180()
         Serial.println(i);
     }
 
-    delay(1000);
+    delay(10000);
 }
 
 void backtrack()
