@@ -22,7 +22,6 @@
 #define FNA 3
 #define FNB 11
 
-
 // Target distance to travel (in centimeters)
 #define TARGET_DISTANCE 25.0 //(in cm)
 
@@ -48,64 +47,12 @@ bool targetReached = false;
 #define EAST 90
 #define SOUTH 180
 #define WEST 270
-int currentBearing = NORTH;  // Start with North as default bearing
+float currentRelativeBearing = 0.0;  // Start with 0 as default relative bearing
 bool correctionEnabled = true;
-
-// Correction timing variables
-unsigned long lastCorrectionTime = 0;
-const unsigned long CORRECTION_INTERVAL = 500; // milliseconds
 
 // Interrupt service routines
 void leftEncoderISR() { leftPulses++; }
 void rightEncoderISR() { rightPulses++; }
-
-
-bool hasStarted = false;
-float initialDistance = 0;
-float totalDistance = 0;
-
-
-
-// RPM calculation variables
-unsigned long lastLeftPulseTime = 0;
-unsigned long lastRightPulseTime = 0;
-float leftRPM = 0.0;
-float rightRPM = 0.0;
-
-void calculateRPM() {
-    unsigned long currentTime = millis();
-    if (leftPulses > 0) {
-        leftRPM = (leftPulses / (float)PULSES_PER_TURN) * (60000.0 / (currentTime - lastLeftPulseTime));
-        lastLeftPulseTime = currentTime;
-        leftPulses = 0;
-    }
-    if (rightPulses > 0) {
-        rightRPM = (rightPulses / (float)PULSES_PER_TURN) * (60000.0 / (currentTime - lastRightPulseTime));
-        lastRightPulseTime = currentTime;
-        rightPulses = 0;
-    }
-}
-
-// Ultrasonic Sensor Functions
-void ultrasonicSetup(int trigPin, int echoPin) {
-    pinMode(trigPin, OUTPUT);
-    pinMode(echoPin, INPUT);
-}
-
-float getDistance(int trigPin, int echoPin) {
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-    unsigned long duration = pulseIn(echoPin, HIGH, 30000);
-    return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
-}
-
-inline int getDih (int trigPin, int echoPin) // Tresthold Dis for junction 
-{
-    return getDistance( trigPin, echoPin) <=10 ? 0 : 1; 
-}
 
 // MPU6050 Setup
 const int MPU = 0x68;
@@ -139,15 +86,18 @@ void getAcceleration() {
     accelZ = (Wire.read() << 8 | Wire.read()) / 16384.0;
 }
 
+void ultrasonicSetup(int trigPin, int echoPin) {
+    pinMode(trigPin, OUTPUT);
+    pinMode(echoPin, INPUT);
+}
 
 void calculateError() {
-    // More samples for better calibration
     for (int i = 0; i < 1000; i++) {
         getOrientation();
         GyroErrorX += gyroX;
         GyroErrorY += gyroY;
         GyroErrorZ += gyroZ;
-        delay(1); // Small delay for more stable sampling
+        delay(1);
     }
     GyroErrorX /= 1000;
     GyroErrorY /= 1000;
@@ -163,191 +113,146 @@ void updateMPU() {
     getOrientation();
     getAcceleration();
     
-    // Correct gyro measurements
     gyroX -= GyroErrorX;
     gyroY -= GyroErrorY;
     gyroZ -= GyroErrorZ;
     
-    // Calculate angles from accelerometer data
     accelAngleX = atan2(accelY, sqrt(pow(accelX, 2) + pow(accelZ, 2))) * 180 / PI;
     accelAngleY = atan2(-accelX, sqrt(pow(accelY, 2) + pow(accelZ, 2))) * 180 / PI;
     
-    // Complementary filter for roll and pitch
     roll = ALPHA * (roll + gyroX * elapsedTime) + (1 - ALPHA) * accelAngleX;
     pitch = ALPHA * (pitch + gyroY * elapsedTime) + (1 - ALPHA) * accelAngleY;
-    
-    // Only gyro for yaw (no magnetometer)
-    yaw += gyroZ * elapsedTime;
+    yaw += gyroZ * elapsedTime; // Update yaw based on gyroZ
 }
 
-// Function to normalize yaw to 0-360 range
 float normalizeYaw(float rawYaw) {
     float normalized = fmod(rawYaw, 360.0);
     if (normalized < 0) normalized += 360.0;
     return normalized;
 }
 
-// Function to calculate the current absolute bearing based on initial reference
-int getCurrentAbsoluteBearing() {
-    // Calculate relative yaw from the initial position
-    float relativeYaw = yaw - initialYaw;
-    
-    // Normalize to 0-360 range
-    float normalizedYaw = normalizeYaw(relativeYaw);
-    
-    // Round to the nearest 90-degree bearing
-    int absoluteBearing = round(normalizedYaw / 90) * 90;
-    if (absoluteBearing >= 360) absoluteBearing = 0;
-    
-    return absoluteBearing;
+float getCurrentRelativeBearing() {
+    float relativeBearing = yaw - initialYaw;
+    return normalizeYaw(relativeBearing);
 }
 
-// Function to align with the nearest cardinal direction
-void alignToBearing(int targetBearing) {
-    // Get the current absolute bearing
-    int currentAbsoluteBearing = getCurrentAbsoluteBearing();
-    float currentRelativeYaw = yaw - initialYaw;
-    float normalizedYaw = normalizeYaw(currentRelativeYaw);
+void printCurrentBearing() {
+    // Get current relative bearing
+    float relativeBearing = getCurrentRelativeBearing();
     
-    // Calculate the error (shortest path to target bearing)
-    float error = targetBearing - normalizedYaw;
+    // Print relative bearing
+    Serial.print("Current Relative Bearing: ");
+    Serial.print(relativeBearing);
+    Serial.println("°");
+}
+
+void alignToBearing(float targetRelativeBearing) {
+    float currentRelativeBearing = getCurrentRelativeBearing();
+    float error = targetRelativeBearing - currentRelativeBearing;
     
-    // Adjust for shortest turn direction (never turn more than 180 degrees)
     if (error > 180) error -= 360;
     if (error < -180) error += 360;
     
-    Serial.print("Aligning to bearing: ");
-    Serial.print(targetBearing);
-    Serial.print("°, Current normalized yaw: ");
-    Serial.print(normalizedYaw);
-    Serial.print("°, Error: ");
-    Serial.println(error);
-    
-    // Define tolerance for alignment
     const float BEARING_TOLERANCE = 2.0;
     
-    // Only correct if error is outside tolerance
     if (abs(error) > BEARING_TOLERANCE) {
-        // Determine turn direction
         if (error > 0) {
-            // Turn Left (CCW)
-            analogWrite(FNA, 80 * LEFT_MOTOR_CALIBRATION);  // Left motor backward
+            analogWrite(FNA, 80 * LEFT_MOTOR_CALIBRATION);
             digitalWrite(IN1, LOW);
             digitalWrite(IN2, HIGH);
-            analogWrite(FNB, 80 * RIGHT_MOTOR_CALIBRATION);  // Right motor forward
+            analogWrite(FNB, 80 * RIGHT_MOTOR_CALIBRATION);
             digitalWrite(IN3, HIGH);
             digitalWrite(IN4, LOW);
             Serial.println("Turning LEFT to align");
         } else {
-            // Turn Right (CW)
-            analogWrite(FNA, 80 * LEFT_MOTOR_CALIBRATION);  // Left motor forward
+            analogWrite(FNA, 80 * LEFT_MOTOR_CALIBRATION);
             digitalWrite(IN1, HIGH);
             digitalWrite(IN2, LOW);
-            analogWrite(FNB, 80 * RIGHT_MOTOR_CALIBRATION);  // Right motor backward
+            analogWrite(FNB, 80 * RIGHT_MOTOR_CALIBRATION);
             digitalWrite(IN3, LOW);
             digitalWrite(IN4, HIGH);
             Serial.println("Turning RIGHT to align");
         }
         
-        // Continue turning until aligned (with tighter tolerance for stopping)
         float currentError;
         do {
             updateMPU();
+            currentRelativeBearing = getCurrentRelativeBearing();
+            currentError = targetRelativeBearing - currentRelativeBearing;
             
-            // Recalculate the error
-            currentRelativeYaw = yaw - initialYaw;
-            normalizedYaw = normalizeYaw(currentRelativeYaw);
-            currentError = targetBearing - normalizedYaw;
-            
-            // Adjust for shortest turn direction
             if (currentError > 180) currentError -= 360;
             if (currentError < -180) currentError += 360;
             
-            Serial.print("Aligning - Current yaw: ");
-            Serial.print(normalizedYaw);
+            Serial.print("Aligning - Current relative bearing: ");
+            Serial.print(currentRelativeBearing);
             Serial.print("°, Error: ");
             Serial.println(currentError);
             
-            delay(10);  // Small delay for stability
-        } while (abs(currentError) > BEARING_TOLERANCE * 0.5);  // Tighter tolerance for stopping
+            delay(10);
+        } while (abs(currentError) > BEARING_TOLERANCE * 0.5);
         
-        // Stop motors after alignment
         stopMotors();
         Serial.println("Alignment complete");
-        
-        // Update current bearing
-        currentBearing = targetBearing;
+        currentRelativeBearing = targetRelativeBearing;
     }
 }
 
-// Improved function to check and correct bearing with proportional control
 void maintainBearing() {
     if (!correctionEnabled) return;
     
-    // Check if we need to align to the current bearing
-    float currentRelativeYaw = yaw - initialYaw;
-    float normalizedYaw = normalizeYaw(currentRelativeYaw);
+    float currentRelative = getCurrentRelativeBearing();
+    float error = currentRelativeBearing - currentRelative;
     
-    // Calculate error from current bearing
-    float error = currentBearing - normalizedYaw;
     if (error > 180) error -= 360;
     if (error < -180) error += 360;
     
-    // Define tolerance for alignment
     const float BEARING_TOLERANCE = 3.0;
     
-    // Only correct if error is outside tolerance
     if (abs(error) > BEARING_TOLERANCE) {
         Serial.print("Bearing correction needed. Error: ");
         Serial.println(error);
         
-        // Calculate proportional correction values (start with small values)
-        int correctionPWM = min(abs(error) * 2, 50); // Limit maximum correction
+        int correctionPWM = min(abs(error) * 2, 50);
         
         if (isMovingForward) {
             if (error > 0) {
-                // Need to turn slightly left
                 analogWrite(FNA, (100 * LEFT_MOTOR_CALIBRATION) - correctionPWM);
                 analogWrite(FNB, (100 * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
             } else {
-                // Need to turn slightly right
                 analogWrite(FNA, (100 * LEFT_MOTOR_CALIBRATION) + correctionPWM);
                 analogWrite(FNB, (100 * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
             }
             
-            // Brief correction pulse
             delay(50);
-            
-            // Resume normal speed
-            MoveForward(100); // Or whatever your normal PWM value is
+            MoveForward(100);
         } else {
-            // If not moving, do a stationary correction
-            alignToBearing(currentBearing);
+            alignToBearing(currentRelativeBearing);
         }
     }
 }
 
-//===============================FORWARD==========================================
+//=================================FORWARD==============================
+
 void MoveForward(int PWM) {
-    isMovingForward = true;  // Fixed: Was using undefined variable 'forward'
+    isMovingForward = true;
     analogWrite(FNA, PWM);
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
     analogWrite(FNB, PWM);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
-    Serial.println("Moving Forward...");  // Added feedback message
+    Serial.println("Moving Forward...");
 }
 
 void moveForwards(int PWM) {
     if (!isMovingForward && !targetReached) {
-        // Reset distance counters before movement starts
         leftTotalDistance = 0.0;
         rightTotalDistance = 0.0;
         targetReached = false;
+        leftPulses = 0;
+        rightPulses = 0;
     }
 
-    // Start moving forward
     isMovingForward = true;
     analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
     analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
@@ -357,202 +262,269 @@ void moveForwards(int PWM) {
     digitalWrite(IN4, LOW);
 
     while (isMovingForward && !targetReached) {
-        // Update MPU6050 data for bearing correction
-        updateMPU();
+        updateMPU(); // Update the MPU6050 sensor data
+        maintainBearing(); // Maintain the current bearing during forward motion
 
-        // Calculate the correction needed based on yaw
-        float correction = initialYaw - yaw; // Turn right is negative
-
-        // Apply proportional correction to motors
-        if (correction > 3) { // Need to turn left
-            digitalWrite(IN1, LOW);
-            digitalWrite(IN2, HIGH);
-            digitalWrite(IN3, HIGH);
-            digitalWrite(IN4, LOW);
-        } else if (correction < -3) { // Need to turn right
-            digitalWrite(IN1, HIGH);
-            digitalWrite(IN2, LOW);
-            digitalWrite(IN3, LOW);
-            digitalWrite(IN4, HIGH);
-        } else { // No correction needed
-            digitalWrite(IN1, HIGH);
-            digitalWrite(IN2, LOW);
-            digitalWrite(IN3, HIGH);
-            digitalWrite(IN4, LOW);
-        }
-
-        // Update distance traveled
-        updateDistance();
-
-        // Calculate average distance
+        updateDistance(); // Update the distance traveled
         float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
 
-        // Stop if the target distance is reached
         if (avgDistance >= TARGET_DISTANCE && !targetReached) {
             stopMotors();
             targetReached = true;
-            break; // Exit the loop
+            break;
         }
 
-        delay(5); // Small delay for stability
+        delay(5); // Small delay to avoid overloading the loop
     }
 }
 
-void Forward25(){
-  //===============================25cm===================================================================
-    if (!targetReached) {
-        moveForwards(100); // Move forward with PWM = 100
-    } else {
+void Forward25() {
+    // Reset distance tracking variables
+    leftTotalDistance = 0.0;
+    rightTotalDistance = 0.0;
+    targetReached = false;
+    leftPulses = 0;
+    rightPulses = 0;
+    Serial.println("Distance tracking reset for forward movement");
+
+    // Disable bearing correction during forward movement
+    correctionEnabled = false;
+
+    Serial.println("Starting forward movement...");
+
+    // Move forward with PWM = 100
+    moveForwards(100);
+
+    // Check if the target distance is reached
+    if (targetReached) {
         Serial.println("Target distance reached.");
     }
+
+    // Re-enable bearing correction after movement
+    correctionEnabled = true;
 }
 
-//================================90 LEFT=======================================
-// Function to turn left by 90 degrees (adjusts bearing)
+//===============================TURNING=================================
 void turnLeft90() {
-    // Calculate new bearing after a left turn
-    int newBearing = currentBearing + 90;
-    if (newBearing >= 360) newBearing -= 360;
+    float newRelativeBearing = currentRelativeBearing + 90;
+    if (newRelativeBearing >= 360) newRelativeBearing -= 360;
     
-    Serial.print("Turning left 90° from bearing ");
-    Serial.print(currentBearing);
+    Serial.print("Turning left 90° from relative bearing ");
+    Serial.print(currentRelativeBearing);
     Serial.print("° to ");
-    Serial.print(newBearing);
+    Serial.print(newRelativeBearing);
     Serial.println("°");
     
-    // Start turning left
-    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);  // Left motor backward
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);  // Right motor forward
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
     
-    // Turn roughly 80 degrees (allows for overshoot)
     float startYaw = yaw;
-    float targetYaw = startYaw + 80.0;  // Adjust for overshoot
+    float targetYaw = startYaw + 80.0;
     
     while (yaw < targetYaw) {
         updateMPU();
-        
-        // Print current yaw for debugging
         Serial.print("Turning: Current Yaw = ");
         Serial.print(yaw);
         Serial.print(", Target = ");
         Serial.println(targetYaw);
-        
-        delay(10);  // Small delay for stability
+        delay(10);
     }
     
-    // Stop motors after rough turn
     stopMotors();
     Serial.println("Rough turn complete");
     
-    // Update current bearing
-    currentBearing = newBearing;
+    currentRelativeBearing = newRelativeBearing;
+    alignToBearing(newRelativeBearing);
     
-    // Fine-tune alignment with the new bearing
-    alignToBearing(newBearing);
+    unsigned long alignmentStartTime = millis();
+    bool isAligned = false;
+    
+    while (!isAligned) {
+        updateMPU();
+        float currentRelative = getCurrentRelativeBearing();
+        float error = newRelativeBearing - currentRelative;
+        
+        if (error > 180) error -= 360;
+        if (error < -180) error += 360;
+        
+        const float BEARING_TOLERANCE = 2.0;
+        
+        if (abs(error) <= BEARING_TOLERANCE) {
+            if (alignmentStartTime == 0) {
+                alignmentStartTime = millis();
+            }
+            
+            if (millis() - alignmentStartTime >= 500) {
+                isAligned = true;
+            }
+        } else {
+            alignmentStartTime = 0;
+            maintainBearing();
+        }
+        
+        Serial.print("Aligning - Current relative bearing: ");
+        Serial.print(currentRelative);
+        Serial.print("°, Error: ");
+        Serial.println(error);
+        
+        delay(10);
+    }
+    
+    stopMotors();
+    Serial.println("Alignment complete. Robot is at target bearing.");
 }
-//================================90 RIGHT=====================================
 
-// Function to turn right by 90 degrees (adjusts bearing)
 void turnRight90() {
-    // Calculate new bearing after a right turn
-    int newBearing = currentBearing - 90;
-    if (newBearing < 0) newBearing += 360;
+    float newRelativeBearing = currentRelativeBearing - 90;
+    if (newRelativeBearing < 0) newRelativeBearing += 360;
     
-    Serial.print("Turning right 90° from bearing ");
-    Serial.print(currentBearing);
+    Serial.print("Turning right 90° from relative bearing ");
+    Serial.print(currentRelativeBearing);
     Serial.print("° to ");
-    Serial.print(newBearing);
+    Serial.print(newRelativeBearing);
     Serial.println("°");
     
-    // Start turning right
-    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);  // Left motor forward
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
-    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);  // Right motor backward
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
     
-    // Turn roughly 80 degrees (allows for overshoot)
     float startYaw = yaw;
     float targetYaw = startYaw - 80.0;
     
     while (yaw > targetYaw) {
         updateMPU();
-        
-        // Print current yaw for debugging
         Serial.print("Turning: Current Yaw = ");
         Serial.print(yaw);
         Serial.print(", Target = ");
         Serial.println(targetYaw);
-        
-        delay(10);  // Small delay for stability
+        delay(10);
     }
     
-    // Stop motors after rough turn
     stopMotors();
     Serial.println("Rough turn complete");
     
-    // Update current bearing
-    currentBearing = newBearing;
+    currentRelativeBearing = newRelativeBearing;
+    alignToBearing(newRelativeBearing);
     
-    // Fine-tune alignment with the new bearing
-    alignToBearing(newBearing);
+    unsigned long alignmentStartTime = millis();
+    bool isAligned = false;
+    
+    while (!isAligned) {
+        updateMPU();
+        float currentRelative = getCurrentRelativeBearing();
+        float error = newRelativeBearing - currentRelative;
+        
+        if (error > 180) error -= 360;
+        if (error < -180) error += 360;
+        
+        const float BEARING_TOLERANCE = 2.0;
+        
+        if (abs(error) <= BEARING_TOLERANCE) {
+            if (alignmentStartTime == 0) {
+                alignmentStartTime = millis();
+            }
+            
+            if (millis() - alignmentStartTime >= 500) {
+                isAligned = true;
+            }
+        } else {
+            alignmentStartTime = 0;
+            maintainBearing();
+        }
+        
+        Serial.print("Aligning - Current relative bearing: ");
+        Serial.print(currentRelative);
+        Serial.print("°, Error: ");
+        Serial.println(error);
+        
+        delay(10);
+    }
+    
+    stopMotors();
+    Serial.println("Alignment complete. Robot is at target bearing.");
 }
 
-//================================180 TURN=======================================
-// Function to turn 180 degrees (spin to the opposite bearing)
 void turn180() {
-    // Calculate the new bearing after a 180-degree turn
-    int newBearing = currentBearing + 180;
-    if (newBearing >= 360) newBearing -= 360;
+    float newRelativeBearing = currentRelativeBearing + 180;
+    if (newRelativeBearing >= 360) newRelativeBearing -= 360;
 
-    Serial.print("Turning 180° from bearing ");
-    Serial.print(currentBearing);
+    Serial.print("Turning 180° from relative bearing ");
+    Serial.print(currentRelativeBearing);
     Serial.print("° to ");
-    Serial.print(newBearing);
+    Serial.print(newRelativeBearing);
     Serial.println("°");
 
-    // Start turning (choose either left or right turn)
-    // Here, we'll use a left turn for 180 degrees
-    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);  // Left motor backward
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);  // Right motor forward
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
 
-    // Turn roughly 170 degrees (allows for overshoot)
     float startYaw = yaw;
-    float targetYaw = startYaw + 170.0;  // Adjust for overshoot
+    float targetYaw = startYaw + 170.0;
 
     while (yaw < targetYaw) {
         updateMPU();
-
-        // Print current yaw for debugging
         Serial.print("Turning: Current Yaw = ");
         Serial.print(yaw);
         Serial.print(", Target = ");
         Serial.println(targetYaw);
-
-        delay(10);  // Small delay for stability
+        delay(10);
     }
 
-    // Stop motors after rough turn
     stopMotors();
     Serial.println("Rough 180° turn complete");
 
-    // Update current bearing
-    currentBearing = newBearing;
+    currentRelativeBearing = newRelativeBearing;
+    alignToBearing(newRelativeBearing);
 
-    // Fine-tune alignment with the new bearing
-    alignToBearing(newBearing);
+    unsigned long alignmentStartTime = millis();
+    bool isAligned = false;
+
+    while (!isAligned) {
+        updateMPU();
+        float currentRelative = getCurrentRelativeBearing();
+        float error = newRelativeBearing - currentRelative;
+        
+        if (error > 180) error -= 360;
+        if (error < -180) error += 360;
+        
+        const float BEARING_TOLERANCE = 2.0;
+        
+        if (abs(error) <= BEARING_TOLERANCE) {
+            if (alignmentStartTime == 0) {
+                alignmentStartTime = millis();
+            }
+            
+            if (millis() - alignmentStartTime >= 500) {
+                isAligned = true;
+            }
+        } else {
+            alignmentStartTime = 0;
+            maintainBearing();
+        }
+        
+        Serial.print("Aligning - Current relative bearing: ");
+        Serial.print(currentRelative);
+        Serial.print("°, Error: ");
+        Serial.println(error);
+        
+        delay(10);
+    }
+
+    stopMotors();
+    Serial.println("Alignment complete. Robot is at target bearing.");
 }
 
-//================================STOP=========================================
+//===================================================================================
 
 void stopMotors() {
     isMovingForward = false;
@@ -562,48 +534,29 @@ void stopMotors() {
     digitalWrite(IN4, LOW);
     Serial.println("Stopped.");
 }
-//=============================ROTARY ENCODER DISTANCE============================
+
 void updateDistance() {
     if (isMovingForward) {
         leftTotalDistance += (leftPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
         rightTotalDistance += (rightPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
+        
+        leftPulses = 0;
+        rightPulses = 0;
+
         float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
         Serial.print("Avg Distance: ");
         Serial.println(avgDistance);
-        leftPulses = rightPulses = 0;
+
         if (avgDistance >= TARGET_DISTANCE && !targetReached) {
             stopMotors();
             targetReached = true;
         }
+    } else {
+        leftPulses = 0;
+        rightPulses = 0;
     }
 }
-//===============================================================================
 
-//========================Bearing troubleshooting===============================
-// Function to turn based on user input and display the new bearing
-void turnBasedOnInput(String direction) {
-    if (direction == "left") {
-        Serial.println("Turning left 90°...");
-        turnLeft90();
-    } else if (direction == "right") {
-        Serial.println("Turning right 90°...");
-        turnRight90();
-    } else if (direction == "180") {
-        Serial.println("Turning 180°...");
-        turn180();
-    } else {
-        Serial.println("Invalid direction. Please enter 'left', 'right', or '180'.");
-        return;
-    }
-
-    // Update MPU6050 data to get the latest yaw
-    updateMPU();
-
-    // Calculate and display the new bearing
-    int newBearing = getCurrentAbsoluteBearing();
-    Serial.print("New Bearing: ");
-    Serial.println(newBearing);
-} 
 void setup() {
     Serial.begin(115200);
     pinMode(IN1, OUTPUT);
@@ -620,267 +573,60 @@ void setup() {
     ultrasonicSetup(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
     ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
     Wire.begin();
-    Wire.beginTransmission(MPU);  // Added: Initialize MPU communication
-    Wire.write(0x6B);             // PWR_MGMT_1 register
-    Wire.write(0);                // Wake up the MPU-6050
+    Wire.beginTransmission(MPU);
+    Wire.write(0x6B);
+    Wire.write(0);
     Wire.endTransmission(true);
     calculateError();
     
-    // Reset distance counters
     leftTotalDistance = 0.0;
     rightTotalDistance = 0.0;
     targetReached = false;
 
-    // Let the MPU stabilize and then store the initial yaw as reference
-    delay(1000);
-    updateMPU();
-    initialYaw = yaw;
+    delay(1000); // Allow MPU6050 to stabilize
+    updateMPU(); // Update MPU6050 data
+    initialYaw = yaw; // Set initial yaw to the current yaw value
+    currentRelativeBearing = 0.0; // Start with 0 as the initial relative bearing
+
     Serial.print("Initial yaw set to: ");
     Serial.println(initialYaw);
-    Serial.print("Starting with bearing: ");
-    Serial.println(currentBearing);
+    Serial.println("Starting with relative bearing of 0 degrees");
 }
 
-bool done = false;
-
 void loop() {
-//==============================Bearing testing========================================
-    // Check for user input from the Serial Monitor
-    if (Serial.available() > 0) {
-        String input = Serial.readStringUntil('\n');
-        input.trim();  // Remove any extra whitespace or newline characters
+    static unsigned long lastPrintTime = 0;
+    const unsigned long printInterval = 500; // Print every 500 ms
 
-        // Call the turn function based on user input
-        turnBasedOnInput(input);
+    // Update MPU data
+    updateMPU();
+
+    // Print current bearing alignment at regular intervals
+    if (millis() - lastPrintTime >= printInterval) {
+        printCurrentBearing();
+        lastPrintTime = millis();
     }
 
-    // Other logic (if needed)
-    delay(100);  // Small delay for stability
+    // Handle serial commands
+    if (Serial.available() > 0) {
+        String input = Serial.readStringUntil('\n');
+        input.trim();
 
-//=============================NEW 90 DEGREE==========================================================
+        if (input == "l") {
+            turnLeft90();
+        } else if (input == "r") {
+            turnRight90();
+        } else if (input == "180") {
+            turn180();
+        } else if (input == "fix") {
+            alignToBearing(currentRelativeBearing);
+            Serial.print("Fixed to relative bearing: ");
+            Serial.println(currentRelativeBearing);
+        } else if (input == "f") {
+            Forward25();
+        } else {
+            Serial.println("Invalid command. Please enter 'l', 'r', '180', 'fix', or 'f'.");
+        }
+    }
 
-    // updateMPU();  // Update MPU data for bearing calculations
-
-    // if (!done) {
-    //     turnLeft90();  // Turn left and validate alignment
-    //     done = true;   // Ensure this sequence runs only once
-    // }
-
-    // // After turning, move forward 25 cm
-    // if (done && !targetReached) {
-    //     moveForwards(100);  // Move forward with PWM = 100
-    // } else if (targetReached) {
-    //     Serial.println("Target distance reached.");
-    // }
-
-    
-    
-    // Additional logic (if needed)
-
-//==========================ULTRASONIC SENSOR=========================================================
-    /*// Read distances from all three ultrasonic sensors
-    float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-    float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
-
-    // Display ultrasonic sensor readings
-    Serial.print("Front: ");
-    Serial.print(frontDistance);
-    Serial.print(" cm | Left: ");
-    Serial.print(leftDistance);
-    Serial.print(" cm | Right: ");
-    Serial.print(rightDistance);
-    Serial.println(" cm");*/
-
-//===========================Ultrasonic 25cm====================================================
-// if (!hasStarted) {
-//     hasStarted = true;
-//     initialDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-//   } else {
-//     float currentDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-//     float deltaDistance = initialDistance - currentDistance;
-//     initialDistance = currentDistance;
-//     totalDistance += deltaDistance;
-//   }
-//   if (totalDistance > 18) { //Stops at 25cm, 7cm(overshoot)  offset 
-//     Serial.println("Done");
-//     stopMotors();
-//   } else {
-//     MoveForward(100);
-//  delay(5);
-//   }
-
-
-//===========================MOTOR CONTROL + ROTARY ENCODER===========================================
-
-    // //Move forward for 25 cm
-    // if (!targetReached) {  // Added check to prevent continuous movement after target is reached
-    //     MoveForward(255);
-    // }
-
-    // // Update and display distance traveled by the wheels
-    // updateDistance();
-
-    // // Calculate RPM
-    // calculateRPM();
-
-    // // Display data for Serial Plotter (comma-separated values)
-    // Serial.print("LeftRaw:");
-    // Serial.print(digitalRead(LEFT_ENCODER_PIN));
-    // Serial.print(",RightRaw:");
-    // Serial.print(digitalRead(RIGHT_ENCODER_PIN));
-    // Serial.print(",LeftRPM:");
-    // Serial.print(leftRPM);
-    // Serial.print(",RightRPM:");
-    // Serial.println(rightRPM); // Use println for the last value to end the line
-
-    // // Display data for Serial Monitor (text-based)
-    // Serial.print("Left Distance: ");
-    // Serial.print(leftTotalDistance);
-    // Serial.print(" cm | Right Distance: ");
-    // Serial.print(rightTotalDistance);
-    // Serial.print(" cm | Avg Distance: ");
-    // Serial.print((leftTotalDistance + rightTotalDistance) / 2.0);
-    // Serial.println(" cm");
-
-    // // Stop when the target distance is reached
-    // if ((leftTotalDistance + rightTotalDistance) / 2.0 >= 25.0 && !targetReached) {
-    //     stopMotors();
-    //     targetReached = true;
-    // }
-
-//===============================25cm===================================================================
-    // if (!targetReached) {
-    //     moveForwards(100); // Move forward with PWM = 100
-    // } else {
-    //     Serial.println("Target distance reached.");
-    // }
-
-
-    // if (!isMovingForward && !targetReached) {
-    //     // Reset distance counters before movement starts
-    //     leftTotalDistance = 0.0;
-    //     rightTotalDistance = 0.0;
-    //     targetReached = false;
-
-    //     // Start moving
-    //     moveForwards(100);
-    // }
-
-    // // Update distance traveled
-    // updateDistance();
-
-    // // Check if the car has reached exactly 25 cm
-    // float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
-    // if (avgDistance >= 25.0 && !targetReached) {
-    //     stopMotors();
-    //     targetReached = true;
-    // }
-
-    // // Print distance values for debugging
-    // Serial.print("Left Distance: ");
-    // Serial.print(leftTotalDistance);
-    // Serial.print(" cm | Right Distance: ");
-    // Serial.print(rightTotalDistance);
-    // Serial.print(" cm | Avg Distance: ");
-    // Serial.print(avgDistance);
-    // Serial.println(" cm");
-
-    // delay(10);  // Small delay to ensure smooth execution
-
-//===============================MPU-6050==============================================================
-
-      //   // Update MPU6050 angles
-      //   updateMPU();
-
-      //   // Print MPU6050 angles
-      //   Serial.print("Roll: ");
-      //   Serial.print(roll);
-      //   Serial.print("° | Pitch: ");
-      //   Serial.print(pitch);
-      //   Serial.print("° | Yaw: "); //(Turning angle) negative for right turn and positive for left hand turn 
-      //   Serial.print(yaw);
-      //   Serial.println("°");
-
-      //  delay(100);  // Added delay for stability
-
-//=================================90 RIGHT & LEFT============================================================
-    // // Update MPU6050 angles
-    // updateMPU();
-    
-    // // Print current bearing information
-    // float relativeYaw = yaw - initialYaw;
-    // float normalizedYaw = normalizeYaw(relativeYaw);
-    
-    // Serial.print("Current Yaw: ");
-    // Serial.print(yaw);
-    // Serial.print("°, Normalized Yaw: ");
-    // Serial.print(normalizedYaw);
-    // Serial.print("°, Current Bearing: ");
-    // Serial.print(currentBearing);
-    // Serial.println("°");
-    
-    // // Static variable to ensure the turn only happens once
-    // static bool turnCompleted = false;
-    
-    // // Execute the turn only once
-    // if (!turnCompleted) {
-    //     turnRight90();  // Or turnLeft90() depending on what you want to test
-    //     turnCompleted = true;
-    //     Serial.println("Turn and stop sequence completed");
-    // }
-    
-    // // Continuously check and correct bearing, but not too frequently
-    // if (millis() - lastCorrectionTime > CORRECTION_INTERVAL) {
-    //     maintainBearing();
-    //     lastCorrectionTime = millis();
-    // }
-    
-    // // Keep updating distance if moving forward
-    // if (isMovingForward) {
-    //     updateDistance();
-    // }
-    
-    // delay(100);  // Small delay for more responsive bearing corrections
-
-//================================180 TURN======================================================================
-    // Update MPU6050 angles
-    // updateMPU();
-    
-    // // Print current bearing information
-    // float relativeYaw = yaw - initialYaw;
-    // float normalizedYaw = normalizeYaw(relativeYaw);
-    
-    // Serial.print("Current Yaw: ");
-    // Serial.print(yaw);
-    // Serial.print("°, Normalized Yaw: ");
-    // Serial.print(normalizedYaw);
-    // Serial.print("°, Current Bearing: ");
-    // Serial.print(currentBearing);
-    // Serial.println("°");
-    
-    // // Static variable to ensure the turn only happens once
-    // static bool turnCompleted = false;
-    
-    // // Execute the turn only once
-    // if (!turnCompleted) {
-    //     turn180();  // Or turnLeft90() depending on what you want to test
-    //     turnCompleted = true;
-    //     Serial.println("Turn and stop sequence completed");
-    // }
-    
-    // // Continuously check and correct bearing, but not too frequently
-    // if (millis() - lastCorrectionTime > CORRECTION_INTERVAL) {
-    //     maintainBearing();
-    //     lastCorrectionTime = millis();
-    // }
-    
-    // // Keep updating distance if moving forward
-    // if (isMovingForward) {
-    //     updateDistance();
-    // }
-    
-    // delay(100);  // Small delay for more responsive bearing corrections
-    //}
-
+    delay(100);
 }
