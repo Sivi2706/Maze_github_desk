@@ -8,8 +8,8 @@
 #define SIZE ROWS * COLS
 
 // Ultrasonic Sensor Pins
-#define FRONT_TRIGGER_PIN 10
-#define FRONT_ECHO_PIN 9
+#define FRONT_TRIGGER_PIN 7
+#define FRONT_ECHO_PIN 8
 #define LEFT_TRIGGER_PIN A3
 #define LEFT_ECHO_PIN A2
 #define RIGHT_TRIGGER_PIN A0
@@ -39,6 +39,8 @@ int checkDist(int trigPin, int echoPin)
     // return 1 if there is space in that direction
     // return -1 if the space is more than 200 cm
     float distance = getDistance(trigPin, echoPin);
+
+    Serial.print("Distance: "); Serial.println(distance);
 
     if (distance > 200) return -1;
     else if (distance <= 10) return 0;
@@ -127,7 +129,7 @@ void search_maze()
     Serial.println("Searching maze.");
     Serial.print("Currently in loop: "); Serial.println(count);
 
-    int front = 0, left = 0, right = 0;
+    int front, left, right;
 
     front = checkDist(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
     left = checkDist(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
