@@ -7,18 +7,43 @@
 #define COLS 8
 #define SIZE ROWS * COLS
 
+// Ultrasonic Sensor Pins
+#define FRONT_TRIGGER_PIN 10
+#define FRONT_ECHO_PIN 9
+#define LEFT_TRIGGER_PIN A3
+#define LEFT_ECHO_PIN A2
+#define RIGHT_TRIGGER_PIN A0
+#define RIGHT_ECHO_PIN A1
+
 char movement_arr[SIZE];
 int junction_nodes[SIZE];
 int junction_visited[SIZE];
 int index = 0;
 int count = 0;
 
-int checkDist()
+
+float getDistance(int trigPin, int echoPin) {
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    unsigned long duration = pulseIn(echoPin, HIGH, 30000);
+    return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
+}
+
+int checkDist(int trigPin, int echoPin)
 {
     // this function should 
     // return 0 if there is no space in that direction
     // return 1 if there is space in that direction
     // return -1 if the space is more than 200 cm
+    float distance = getDistance(trigPin, echoPin);
+
+    if (distance > 200) return -1;
+    else if (distance <= 10) return 0;
+    else return 1;
+
     Serial.println("Distance checked");
 }
 
@@ -73,14 +98,27 @@ void turn_180()
 void backtrack()
 {
     turn_180();
+    delay(10000);
 
     Serial.println("Backtrack starting.");
 
     for (count -= 1; count > junction_nodes[index]; count--)
     {
-        if (movement_arr[count] == 'F') move_forward();
-        else if (movement_arr[count] == 'L') turn_right_90();
-        else if (movement_arr[count] == 'R') turn_left_90();
+        if (movement_arr[count] == 'F') 
+        {
+            Serial.println("Move forward now");
+            move_forward();
+        }
+        else if (movement_arr[count] == 'L') 
+        {
+            Serial.println("Turn right now");
+            turn_right_90();
+        }
+        else if (movement_arr[count] == 'R') 
+        {
+            Serial.println("Turn left now");
+            turn_left_90();
+        }
     }    
 }
 
@@ -91,13 +129,15 @@ void search_maze()
 
     int front = 0, left = 0, right = 0;
 
-    front = checkDist();
-    left = checkDist();
-    right = checkDist();
+    front = checkDist(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    left = checkDist(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    right = checkDist(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
     Serial.print("Front: "); Serial.println(front); 
     Serial.print("Left: "); Serial.println(left);
     Serial.print("Right: "); Serial.println(right);
+
+    delay(5000);
 
     if (front == 1 && junction_nodes[index] < 1)                 // front has space
     {
@@ -110,6 +150,7 @@ void search_maze()
             Serial.println("Junction node stored.");
         }
        
+        Serial.println("Move forward now.");
         move_forward();
         Serial.println("Forward movement done.");
         movement_arr[count] = 'F';
@@ -127,12 +168,14 @@ void search_maze()
             Serial.println("Junction node stored.");
         }
         
+        Serial.println("Turn left now");
         turn_left_90();
         Serial.println("Turn left 90° done.");
         movement_arr[count] = 'L';
         count++;
         Serial.println("Left turn stored.");
         
+        Serial.println("Move forward now.");
         move_forward();
         Serial.println("Forward movement done.");
         movement_arr[count] = 'F';
@@ -143,12 +186,14 @@ void search_maze()
     {
         Serial.println("Right space detected");
         
+        Serial.println("Turn right now");
         turn_right_90();
         Serial.println("Turn right 90° done.");
         movement_arr[count] = 'R';
         count++;
         Serial.println("Right turn stored.");
         
+        Serial.println("Move forward now.");
         move_forward();
         Serial.println("Forward movement done.");
         movement_arr[count] = 'F';
@@ -170,6 +215,7 @@ void search_maze()
 
         if (movement_arr[count] == 'F')
         {
+            Serial.println("Turn 180 now");
             turn_180();
             Serial.println("Reorienting: F (Forward)");
             junction_visited[index] = 1;
@@ -177,6 +223,7 @@ void search_maze()
         }
         else if (movement_arr[count] == 'L')
         {
+            Serial.println("Turn right now");
             turn_right_90();
             Serial.println("Reorienting: L (Left)");
             junction_visited[index] = 2;
@@ -184,6 +231,7 @@ void search_maze()
         }
         else if (movement_arr[count] == 'R')
         {
+            Serial.println("Turn left now");
             turn_left_90();
             Serial.println("Reorienting: R (Right)");
             junction_visited[index] = 3;
