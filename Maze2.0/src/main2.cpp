@@ -81,6 +81,7 @@ int movement_index[MAX_GOONS];
 int junction_gooned[MAX_GOONS];
 int index_counter = 0;
 int aura_points = 0;
+int LeBron_counter = 0;
 bool is_LeBron_done = false;
 
 void calculateRPM() {
@@ -103,6 +104,26 @@ void ultrasonicSetup(int trigPin, int echoPin) {
     pinMode(echoPin, INPUT);
 }
 
+// float getDistance(int trigPin, int echoPin) {
+//     digitalWrite(trigPin, LOW);
+//     delayMicroseconds(2);
+//     digitalWrite(trigPin, HIGH);
+//     delayMicroseconds(10);
+//     digitalWrite(trigPin, LOW);
+//     unsigned long duration = pulseIn(echoPin, HIGH, 30000);
+//     return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
+// }
+
+// int rizzCheck(int trigPin, int echoPin) {
+//     float distance = getDistance(trigPin, echoPin);
+//     Serial.print("Distance: ");
+//     Serial.print(distance);
+//     Serial.println(" cm");
+//     if (distance > 200) return -1;
+//     return distance > 10 ? 1 : 0; // Threshold distance for junction detection
+// }
+
+// Function to get distance from ultrasonic sensor
 float getDistance(int trigPin, int echoPin) {
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
@@ -113,14 +134,13 @@ float getDistance(int trigPin, int echoPin) {
     return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
 }
 
+// Function to check if a wall is present
 int rizzCheck(int trigPin, int echoPin) {
     float distance = getDistance(trigPin, echoPin);
-    Serial.print("Distance: ");
-    Serial.print(distance);
-    Serial.println(" cm");
-    if (distance > 200) return -1;
-    return distance > 10 ? 1 : 0; // Threshold distance for junction detection
+    if (distance > 0 && distance <= 10) return 0;
+    else return 1;
 }
+
 
 // MPU6050 Setup
 const int MPU = 0x68;
@@ -309,6 +329,7 @@ void turnRight90() {
     
     stopMotors();
     Serial.println("Rough turn complete");
+    delay(1000);
     
     currentBearing = newBearing;
     // Assume alignToBearing smoothly finalizes the turn
@@ -351,6 +372,7 @@ void turnLeft90() {
     
     currentBearing = newBearing;
     alignToBearing(newBearing);
+    delay(1000);
 }
 
 void turn180() {
@@ -380,6 +402,7 @@ void turn180() {
 
     stopMotors();
     Serial.println("Rough 180° turn complete");
+    delay(1000);
 
     currentBearing = newBearing;
     alignToBearing(newBearing);
@@ -400,7 +423,7 @@ void MoveForward(int PWM) {
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
     
-    while (isMovingForward && !targetReached) {
+    //while (isMovingForward && !targetReached) {
         updateMPU();
         float correction = initialYaw - yaw;
         
@@ -427,11 +450,12 @@ void MoveForward(int PWM) {
         if (avgDistance >= TARGET_DISTANCE) {
             stopMotors();
             targetReached = true;
-            break;
+            Serial.println("Target reached");
+            //break;
         }
         
-        delay(5);
-    }
+        delay(1000);
+    //}
 }
 
 void maintainBearing() {
@@ -535,14 +559,14 @@ void keep_going_LeBron(int i)
         temp_movement[i] = '\0';  // Null terminate the array
         is_LeBron_done = true;
     } 
-    else if (junction_gooned[index_counter] < 1 && front)              // Forward path
+    else if (junction_gooned[index_counter] < 1 && front == 1)              // Forward path
     {
         if (left || right) movement_index[++index_counter] = i;
         MoveForward(100);
         temp_movement[i] = 'F';
         Serial.println("Movement: F (Forward)");
     } 
-    else if (junction_gooned[index_counter] < 2 && left)               // Left path
+    else if (junction_gooned[index_counter] < 2 && left == 1)               // Left path
     {
         if (right) movement_index[++index_counter] = i;
         turnLeft90();
@@ -551,7 +575,7 @@ void keep_going_LeBron(int i)
         temp_movement[i++] = 'F';
         Serial.println("Movement: L (Left)");
     } 
-    else if (junction_gooned[index_counter] < 3 && right)              // Right path
+    else if (junction_gooned[index_counter] < 3 && right == 1)              // Right path
     {
         turnRight90();
         temp_movement[i] = 'R';
@@ -563,7 +587,7 @@ void keep_going_LeBron(int i)
     {
         // special case: when LeBron has returned to a junction that has all of its junctions explored
         // AND THEY ARE ALL DEAD ENDS
-        if (junction_gooned[index_counter] == 3 || (junction_gooned[index_counter] == 2 && !right)) 
+        if (junction_gooned[index_counter] == 3 || (junction_gooned[index_counter] == 2 && right == 0)) 
         {
             // if LeBron is in this special case, 
             // then reset junction_gooned to 0 and decrement before backtracking to previous junction
@@ -712,16 +736,16 @@ void this_time_i_want_youyouyouyou_like_its_magnetic()
     memset(movement_index, 0, sizeof(movement_index));
     memset(junction_gooned, 0, sizeof(junction_gooned));
 
-    if (memoryRead() == -1) aura_points = 0;
-    else 
-    {
-        aura_points = 1;
-        memcpy(temp_movement, final_movement, sizeof(final_movement));
-    }
+    // if (memoryRead() == -1) aura_points = 0;
+    // else 
+    // {
+    //     aura_points = 1;
+    //     memcpy(temp_movement, final_movement, sizeof(final_movement));
+    // }
 }
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(9600);
     pinMode(IN1, OUTPUT);
     pinMode(IN2, OUTPUT);
     pinMode(IN3, OUTPUT);
@@ -737,22 +761,99 @@ void setup() {
 
 void loop() 
 {
-    keep_going_LeBron(0);
+    Serial.println("Executing keep_going_LeBron()");
+    bool front, left, right;
+    // int LeBron_counter = 0;
+    Serial.println(LeBron_counter);
 
-    if (aura_points = 0) keep_going_LeBron(0);
-    else
+    front = rizzCheck(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    left = rizzCheck(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    right = rizzCheck(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+    Serial.println("Rizz check values:");
+    Serial.println(front);
+    Serial.println(left);
+    Serial.println(right);
+
+    // if (front == -1 && left == -1 && right == -1)                      // End of maze
+    // {
+    //     Serial.println("End of maze reached.");
+    //     temp_movement[LeBron_counter] = '\0';  // Null terminate the array
+    //     is_LeBron_done = true;
+    // } 
+    if (junction_gooned[index_counter] < 1 && front == 1)              // Forward path
     {
-        int shawarma = follow_Lebrons_footsteps();
-        keep_going_LeBron(shawarma);
+        if (left || right) movement_index[++index_counter] = LeBron_counter;
+        MoveForward(100);
+        temp_movement[LeBron_counter] = 'F';
+        Serial.println("Movement: F (Forward)");
+    } 
+    else if (junction_gooned[index_counter] < 2 && left == 1)               // Left path
+    {
+        if (right) movement_index[++index_counter] = LeBron_counter;
+        turnLeft90();
+        temp_movement[LeBron_counter] = 'L';
+        MoveForward(100);
+        temp_movement[++LeBron_counter] = 'F';
+        Serial.println("Movement: L (Left)");
+    } 
+    else if (junction_gooned[index_counter] < 3 && right == 1)              // Right path
+    {
+        turnRight90();
+        temp_movement[LeBron_counter] = 'R';
+        MoveForward(100);
+        temp_movement[++LeBron_counter] = 'F';
+        Serial.println("Movement: R (Right)");
     }
-
-    if (is_LeBron_done == true)
+    else 
     {
-        if (arrLen(temp_movement) < arrLen(final_movement))
+        // special case: when LeBron has returned to a junction that has all of its junctions explored
+        // AND THEY ARE ALL DEAD ENDS
+        if (junction_gooned[index_counter] == 3 || (junction_gooned[index_counter] == 2 && right == 0)) 
         {
-            memcpy(final_movement, temp_movement, sizeof(temp_movement));
-            memoryReset();
-            memoryWrite();
+            // if LeBron is in this special case, 
+            // then reset junction_gooned to 0 and decrement before backtracking to previous junction
+            junction_gooned[(index_counter)--] = 0;
+        }
+
+        Serial.println("Backtracking...");
+        LeBron_counter = back_it_up_LeBron(LeBron_counter);
+
+        if (temp_movement[LeBron_counter + 1] == 'F') 
+        {
+            turn180();
+            junction_gooned[index_counter] = 1;
+            Serial.println("Reorienting: F (Forward)");
+        } 
+        else if (temp_movement[LeBron_counter + 1] == 'L') 
+        {
+            turnLeft90();
+            junction_gooned[index_counter] = 2;
+            Serial.println("Reorienting: L (Left)");
+        } 
+        else if (temp_movement[LeBron_counter + 1] == 'R') 
+        {
+            turnRight90();
+            junction_gooned[index_counter] = 3;
+            Serial.println("Reorienting: R (Right)");
         }
     }
+    LeBron_counter++;
+    // keep_going_LeBron(0);
+
+    // if (aura_points = 0) keep_going_LeBron(0);
+    // else
+    // {
+    //     int shawarma = follow_Lebrons_footsteps();
+    //     keep_going_LeBron(shawarma);
+    // }
+
+    // if (is_LeBron_done == true)
+    // {
+    //     if (arrLen(temp_movement) < arrLen(final_movement))
+    //     {
+    //         memcpy(final_movement, temp_movement, sizeof(temp_movement));
+    //         memoryReset();
+    //         memoryWrite();
+    //     }
+    // }
 }

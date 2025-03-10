@@ -1,67 +1,66 @@
-juntion:            √ √          √ = junction found, every junction found will increment index_counter BEFORE storing movement_index
-temp_movement:      F F F X
-movement_index, i:  0 1 2        back track to => i = 1, set juntion_gooned = 1 @ position 2
+juntion:            √ √          √ = junction found, every junction found will increment index BEFORE storing junction_nodes
+movement_arr:      F F F X
+junction_nodes,i:  0 1 2        back track to => i = 1, set juntion_gooned = 1 @ position 2
                                       √
-temp_movement:          R F L F F R F F F F F L F F X
-movement_index, i:      2 3 4 5 6 7 8 9 0 1 2 3 4 5     (2 - 15 but i want to align the numbers and letters)
-                                                        back track to => i = 9, set juntion_gooned = 1, @ position index_counter = 3
-                                        L F F X         back track to => i = 9, set juntion_gooned = 2, @ position index_counter = 3
-                                        R F F X         back track to => i = 9, set juntion_gooned = 3, @ position index_counter = 3
+movement_arr:          R F L F F R F F F F F L F F X
+junction_nodes,i:      2 3 4 5 6 7 8 9 0 1 2 3 4 5     (2 - 15 but i want to align the numbers and letters)
+                                                        back track to => i = 9, set juntion_gooned = 1, @ position index = 3
+                                        L F F X         back track to => i = 9, set juntion_gooned = 2, @ position index = 3
+                                        R F F X         back track to => i = 9, set juntion_gooned = 3, @ position index = 3
 
-since junction_gooned = 3, & index_counter = 3: 
-set junction_gooned[index_counter] = 0, back track to => i = 1, decrement index_counter which should now be 2
+since junction_visited = 3, & index = 3: 
+set junction_visited[index] = 0, back track to => i = 1, decrement index which should now be 2
 
-set junction_gooned[index_counter] = 3, since junction_gooned[2] = 3, & index_counter = 2
-set junction_gooned[index_counter] = 0, back track to => i = 0, decrement index_counter which should now be 1
+set junction_visited[index] = 3, since junction_visited[2] = 3, & index = 2
+set junction_visited[index] = 0, back track to => i = 0, decrement index which should now be 1
 
-juntion:                                √               ++index_counter, which should now be 2
-temp_movement:        R F F F F F F F L F F F X
-movement_index, i:    1 2 3 4 5 6 7 8 9 0 1 2           10 is stored into movement_index @ position index_counter = 2
-                                                        back track to => i = 10, set juntion_gooned = 1, @ position index_counter = 2
+juntion:                                √               ++index, which should now be 2
+movement_arr:        R F F F F F F F L F F F X
+junction_nodes,i:    1 2 3 4 5 6 7 8 9 0 1 2           10 is stored into junction_nodes @ position index = 2
+                                                        back track to => i = 10, set juntion_gooned = 1, @ position index = 2
 
-                                              √         ++index_counter, which should now be 3, 13 is stored into movement_index @ position index_counter = 3
+                                              √         ++index, which should now be 3, 13 is stored into junction_nodes @ position index = 3
                                           R F F F(OUT)
                                           1 2 3 4
 
 FINAL ARRAY ELEMENTS:
-temp_movement: [F, R, F, F, F, F, F, F, F, L, F, R, F, F, F]
-movement_index: [0, 0, 10, 13]
-junction_gooned: [0, 1, 1, 0]
-index_counter = 3
+movement_arr: [F, R, F, F, F, F, F, F, F, L, F, R, F, F, F]
+junction_nodes: [0, 0, 10, 13]
+junction_visited: [0, 1, 1, 0]
+index = 3
 
-keep_going_LeBron 
+search_maze() 
 {
-    for loop with int i 
+    if (junction_visited < 1 && front has space)
     {
-        if (junction_gooned < 1 && front has space)
+        increment index FIRST BEFORE storing junction_nodes;
+            ** this means that junction_nodes[0] and junction_visited[0] will always be empty, i.e. 0 **
+        add junction node to junction_nodes;
+        move front and input 'F';
+    }
+    else if (junction_visited < 2 && left has space)
+    {
+        increment index FIRST BEFORE storing junction_nodes;
+            ** this means that junction_nodes[0] and junction_visited[0] will always be empty, i.e. 0 **
+        add junction node to junction_nodes;
+        move left and input 'L' & 'F';
+    }
+    else if (junction_visited < 3 && right has space)
+    {
+        move right and input 'R' & 'F';
+    }
+    else
+    {
+        if ((junction_visited == 2 && right has no space) OR junction_visited == 3)
         {
-            increment index_counter FIRST BEFORE storing movement_index;
-                ** this means that movement_index[0] and junction_gooned[0] will always be empty, i.e. 0 **
-            add junction node to movement_index;
-            move front and input 'F';
+            set current junction_visited = 0;
+            decrement index;
         }
-        else if (junction_gooned < 2 && left has space)
-        {
-            increment index_counter FIRST BEFORE storing movement_index;
-                ** this means that movement_index[0] and junction_gooned[0] will always be empty, i.e. 0 **
-            add junction node to movement_index;
-            move left and input 'L' & 'F';
-        }
-        else if (junction_gooned < 3 && right has space)
-        {
-            move right and input 'R' & 'F';
-        }
-        else if ((junction_gooned == 2 && right has no space) OR junction_gooned == 3)
-        {
-            set current junction_gooned = 0;
-            decrement index_counter;
-            back track to previous junction node;
-            set junction_gooned flag accordingly;
-        }
-        else (dead end of the path)
-        {
-            back track to previous junction node;
-            set junction_gooned flag accordingly;
-        }
+        back track to previous junction node;
+        set junction_visited flag accordingly;
+        junction_visited flag = 1 if front route has just been explored;
+        junction_visited flag = 2 if left route has just been explored;
+        junction_visited flag = 3 if right route has just been explored;
+        reorient the robot;
     }
 }
