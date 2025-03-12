@@ -39,10 +39,8 @@
 #define RIGHT_MOTOR_CALIBRATION 0.95
 
 //Variables for encoders
-unsigned int leftPulses = 0; //switched from long to int, 4b to 2b, saves 4b in total
-unsigned int rightPulses = 0;
 int PULSES_PER_TURN = 20;
-float WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
+float WHEEL_CIRCUMFERENCE = PI * 4;
 
 //Distance tracking
 float leftTotalDistance = 0.0;
@@ -76,12 +74,22 @@ uint8_t count = 0;
 
 //Flags to store bools
 struct BooleanFlags {
-    unsigned int isMovingForward = 0;
-    unsigned int targetReached = 0;
-    unsigned int correctionEnabled = 1;
-    unsigned int is_LeBron_done = 0;
-    unsigned int has_LeBron_written = 0;
-}
+    unsigned int isMovingForward : 1;
+    unsigned int targetReached : 1;
+    unsigned int correctionEnabled : 1;
+    unsigned int is_LeBron_done : 1;
+    unsigned int has_LeBron_written : 1;
+} flags = {0, 0, 1, 0, 0};
+
+// struct EncoderState {
+//     unsigned int leftPulses = 0;
+//     unsigned int rightPulses = 0;
+//     float leftTotalDistance = 0.0;
+//     float rightTotalDistance = 0.0;
+// };
+
+unsigned int leftPulses = 0;
+unsigned int rightPulses = 0;
 
 //ISP for rotary encoders
 void leftEncoderISP() {leftPulses++;}
@@ -90,7 +98,7 @@ void rightEncoderISP() {rightPulses++;}
 //setup ultrasonic sensors in initial setup() function
 void ultrasonicSetup(int trigPin, int echoPin) {
     pinMode(trigPin, OUTPUT);
-    pinMode(echoPin, OUTPUT);
+    pinMode(echoPin, INPUT);
 }
 
 //returns distance using ultrasonic sensors
@@ -100,13 +108,20 @@ float getDistance(int trigPin, int echoPin) {
     digitalWrite(trigPin, HIGH);
     delayMicroseconds(10);
     digitalWrite(trigPin, LOW);
-    long duration = pulseIn 0 : (duration * 0.0343 / 2.0);
+    long duration = pulseIn(echoPin, HIGH, 30000);
+    Serial.print(F("NIAMA DISTANCE FOR TRIG"));
+    Serial.println(trigPin);
+    Serial.print(F("DISTANCE: "));
+    Serial.println(duration * 0.0343 / 2.0);
+    return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
 }
 
 //returns true or false depending on the distance from ultrasonic sensors
 int checkDist(int trigPin, int echoPin) {
-    if (getDistance(trigPin, echoPin) > 210) return -1; 
-    return getDistance(trigPin, echoPin) <= 5 ? 0 : 1;
+  float distance = getDistance(trigPin, echoPin);
+    if (distance > 210) return -1; 
+    else if (distance <= 10) return 0;
+    else return 1;
 }
 
 //updates the orientation of the MPU
@@ -166,7 +181,7 @@ void updateMPU() {
     roll = 0.96 * (roll + gyroX * elapsedTime) + (1 - 0.96) * accelAngleX;
     pitch = 0.96 * (pitch + gyroY * elapsedTime) + (1 - 0.96) * accelAngleY;
 
-    yaw += gyroZ * elapsedTime
+    yaw += gyroZ * elapsedTime;
 }
 
 //converts the angle to within 0 - 360
@@ -243,7 +258,7 @@ void alignToBearing(int targetBearing) {
 
 //aligns the car to a specific bearing for a set time, is more accurate
 void maintainBearing() {
-    if (BooleanFlags.correctionEnabled == 0) return;
+    if (flags.correctionEnabled == 0) return;
 
     float currentRelativeYaw = yaw - initialYaw;
     float normalizedYaw = normalizeYaw(currentRelativeYaw);
@@ -257,7 +272,7 @@ void maintainBearing() {
     if (abs(error) > BEARING_TOLERANCE) {
         int correctionPWM = min(abs(error) * 2, 50);
 
-        if (BooleanFlags.isMovingForward == 1) {
+        if (flags.isMovingForward == 1) {
             if (error > 0) {
                 analogWrite(FNA, 100 - correctionPWM);
                 analogWrite(FNB, 100 - correctionPWM);
@@ -268,7 +283,7 @@ void maintainBearing() {
 
             delay(50);
 
-            MoveForward(100);
+            moveForward(100);
         } else {
             alignToBearing(currentBearing);
         }
@@ -277,16 +292,16 @@ void maintainBearing() {
 
 //updates the distance travelled
 void updateDistance() {
-    if (BooleanFlags.isMovingForward) {
+    if (flags.isMovingForward) {
         leftTotalDistance += (leftPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
         rightTotalDistance += (rightPulses / (float)PULSES_PER_TURN) *WHEEL_CIRCUMFERENCE;
         float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
         Serial.print(F("Avg distance: "));
         Serial.println(avgDistance);
         leftPulses = rightPulses = 0;
-        if (avgDistance >= TARGET_DISTANCE && BooleanFlags.targetReached == 0) {
+        if (avgDistance >= TARGET_DISTANCE && flags.targetReached == 0) {
             stopMotors();
-            BooleanFlags.targetReached = 1;
+            flags.targetReached = 1;
         }
     }
 }
@@ -394,22 +409,268 @@ void updateDistance() {
 //     }
 // }
 
+//stops all motors from moving 
 void stopMotors() {
-    BooleanFlags.isMovingForward = 0;
+    flags.isMovingForward = 0;
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, LOW);
 }
 
+//moves forward until target distance, while following the bearing
+void moveForward(int PWM) {
+    flags.isMovingForward = 1;
 
+    float targetBearing = currentBearing;
 
+    analogWrite(FNA, PWM);
+    analogWrite(FNB, PWM);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
 
+    Serial.println(F("Moving forward"));
 
+    unsigned long startTime = millis();
 
+    float BEARING_TOLERANCE = 2.0;
 
+    while (flags.isMovingForward == 1 && flags.targetReached == 0) {
+        updateMPU();
 
+        float currentRelativeBearing = getCurrentAbsoluteBearing();
 
+        float error = targetBearing - currentRelativeBearing;
+
+        if (error > 180) error -= 360;
+        if (error < - 180) error += 360;
+
+        if (abs(error) > BEARING_TOLERANCE && millis() - startTime < 2000) {
+            int correctionPWM = min(abs(error) * 2, 50);
+
+            if (error > 0) {
+                analogWrite(FNA, PWM - correctionPWM);
+                analogWrite(FNB, PWM + correctionPWM);
+            } else {
+                analogWrite(FNA, PWM + correctionPWM);
+                analogWrite(FNB, PWM - correctionPWM);
+            }
+
+            Serial.print(F("Correcting Bearing - Error: "));
+            Serial.println(error);
+        } else {
+            analogWrite(FNA, PWM);
+            analogWrite(FNB, PWM);
+        }
+
+        updateDistance();
+        float avgDistance = (leftTotalDistance + rightTotalDistance) / 2.0;
+
+        if (avgDistance >= TARGET_DISTANCE) {
+            stopMotors();
+            flags.targetReached = 1;
+            Serial.println(F("Target reached!"));
+            break;
+        }
+
+        delay(5);
+    }
+
+    stopMotors();
+    Serial.println(F("Forward completed"));
+}
+
+//turns left 90 degrees
+void turnLeft90() {
+    float targetBearing = currentBearing + 90;
+    if (targetBearing >= 360) targetBearing -= 360;
+
+    Serial.print(F("Turning left 90 to "));
+    Serial.println(targetBearing);
+
+    analogWrite(FNA, 150);
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(FNB, 150);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+
+    float startYaw = yaw;
+    float targetYaw = yaw + 80.0;
+
+    while (yaw < targetYaw) {
+        updateMPU();
+        
+        delay(5);
+    }
+
+    stopMotors();
+    Serial.println(F("Rough turn completed"));
+
+    currentBearing = targetBearing;
+    alignToBearing(targetBearing);
+
+    unsigned long alignmentStartTime = millis();
+    bool isAligned = false;
+
+    float BEARING_TOLERANCE = 2.0;
+
+    while (!isAligned) {
+        updateMPU();
+        float currentRelative = getCurrentAbsoluteBearing();
+        float error = targetBearing - currentRelative;
+
+        if (error > 180) error -= 360;
+        if (error < -180) error += 360;
+
+        if (abs(error) <= BEARING_TOLERANCE) {
+            if (alignmentStartTime == 0) {
+                alignmentStartTime = millis();
+            }
+
+            if (millis() - alignmentStartTime >= 500) {
+                isAligned = true;
+            }
+        } else {
+            alignmentStartTime = 0;
+            maintainBearing();
+        }
+
+        Serial.print(F("Aligning to bearing: "));
+        Serial.print(currentRelative);
+
+        delay(5);
+    }
+
+    stopMotors();
+    Serial.println(F("Alignment complete"));
+}
+
+//turns right 90 degrees
+void turnRight90() {
+    float targetBearing = currentBearing - 90;
+    if (targetBearing < 0) targetBearing += 360;
+
+    Serial.print(F("Turning right 90 to "));
+    Serial.println(targetBearing);
+
+    analogWrite(FNA, 150);
+    analogWrite(FNB, 150);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+
+    float startYaw = yaw;
+    float targetYaw = startYaw - 80.0;
+
+    while (yaw > targetYaw) {
+        updateMPU();
+
+        delay(5);
+    }
+
+    stopMotors();
+    Serial.println(F("Rough turn complete"));
+
+    currentBearing = targetBearing;
+    alignToBearing(targetBearing);
+
+    unsigned long alignmentStartTime = millis();
+    bool isAligned = false;
+
+    float BEARING_TOLERANCE = 2.0;
+
+    while (!isAligned) {
+        updateMPU();
+        float currentRelative = getCurrentAbsoluteBearing();
+        float error = targetBearing - currentRelative;
+
+        if (error > 180) error -= 360;
+        if (error < -180) error += 360;
+
+        if (abs(error) <= BEARING_TOLERANCE) {
+            if (alignmentStartTime == 0) {
+                alignmentStartTime = millis();
+            }
+
+            if (millis() - alignmentStartTime >= 500) {
+                isAligned = true;
+            }
+        } else {
+            alignmentStartTime = 0;
+            maintainBearing();
+        }
+
+        delay(5);
+    }
+
+    stopMotors();
+    Serial.println(F("Alignment complete"));
+}
+
+//turns 180 according to bearing
+void turn180() {
+    float targetBearing = currentBearing + 180;
+    if (targetBearing >= 360) targetBearing -= 360;
+
+    Serial.print(F("Turning 180 to "));
+    Serial.println(targetBearing);
+
+    analogWrite(FNA, 120);
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(FNB, 120);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+
+    float startYaw = yaw;
+    float targetYaw = startYaw + 170;
+
+    while (startYaw < targetYaw) {
+        updateMPU();
+
+        delay(5);
+    }
+
+    stopMotors();
+
+    currentBearing = targetBearing;
+    alignToBearing(targetBearing);
+
+    unsigned long alignmentStartTime = millis();
+    bool isAligned = false;
+    float BEARING_TOLERANCE = 2.0;
+
+    while (!isAligned) {
+        updateMPU();
+        float currentRelative = getCurrentAbsoluteBearing();
+        float error = targetBearing - currentRelative;
+
+        if (error > 180) error -= 360;
+        if (error < -180) error += 360;
+
+        if (abs(error) <= BEARING_TOLERANCE) {
+            if (alignmentStartTime == 0) {
+                alignmentStartTime = millis();
+            }
+
+            if (millis() - alignmentStartTime >= 500) {
+                isAligned = true;
+            }
+        } else {
+            alignmentStartTime = 0;
+            maintainBearing();
+        }
+
+        delay(5);
+    }
+
+    stopMotors();
+    Serial.println(F("Alignment complete"));
+}
 
 //Resets the EEPROM memory
 void memoryReset() {
@@ -450,7 +711,7 @@ uint8_t memoryRead() {
     EEPROM.get(addr, movement_arr);
     addr += sizeof(movement_arr);
 
-    EEPROM.get(and, junction_nodes);
+    EEPROM.get(addr, junction_nodes);
     addr += sizeof(junction_nodes);
 
     EEPROM.get(addr, index);
@@ -461,5 +722,193 @@ uint8_t memoryRead() {
 
 void backtrack() {
     Serial.println(F("Backtrack starting"));
-    
+    turn180();
+    delay(3000);
+
+    for (count -= 1; count > junction_nodes[index]; count--) {
+        if (movement_arr[count] == 'F') {
+            Serial.println(F("Move Forward"));
+            moveForward(110);
+        } else if (movement_arr[count] == 'L') {
+            Serial.println(F("Turn right now"));
+            turnRight90();
+        } else if (movement_arr[count] == 'R') {
+            Serial.println(F("Turn left now"));
+            turnLeft90();
+        }
+    }
+
+    if (movement_arr[junction_nodes[index]] == 'F') {
+        Serial.println("Move forward now");
+        moveForward(110);
+    }
+}
+
+void search_maze() {
+    Serial.println(F("Searching maze"));
+    Serial.print(F("Current in loop:"));
+    Serial.println(count);
+
+    uint8_t front, left, right;
+
+    front = checkDist(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    left = checkDist(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    right = checkDist(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+
+    Serial.print(F("FRONT: "));
+    Serial.println(front);
+    Serial.print(F("LEFT: "));
+    Serial.println(left);
+    Serial.print(F("RIGHT: "));
+    Serial.println(right);
+
+    Serial.println(F("-----"));
+    Serial.print(F("INDEX: "));
+    Serial.println(index);
+    Serial.print(F("JUNCTION VISITED: "));
+    Serial.println(junction_visited[index]);
+
+    delay(3000);
+
+    if (front == 1 && (count != junction_nodes[index] || junction_visited[index] < 1)) {
+        Serial.println(F("Front space detected"));
+        if (left == 1 || right == 1) {
+            Serial.println(F("Left and/or right space detected"));
+            index++;
+            junction_nodes[index] = count;
+            Serial.println(F("Junction node stored"));
+        }
+
+        Serial.println(F("Move forward now"));
+        moveForward(110);
+        Serial.println(F("Forward done"));
+        movement_arr[count] = 'F';
+        count++;
+        Serial.println(F("Forward stored"));
+    } else if (left == 1 && (count != junction_nodes[index] || junction_visited[index] < 2)) {
+        Serial.println(F("Left space detected"));
+        if (right == 1) {
+            Serial.println(F("Right space detected"));
+            index++;
+            junction_nodes[index] = count;
+            Serial.println(F("Junction node stored"));
+        }
+
+        Serial.println(F("Turn left now"));
+        turnLeft90();
+        Serial.println(F("Turn left 90 done"));
+        movement_arr[count] = 'L';
+        count++;
+        Serial.println(F("Left turn stored"));
+
+        Serial.println(F("Move forward now"));
+        moveForward(110);
+        Serial.println(F("Forward done"));
+        movement_arr[count] = 'F';
+        count++;
+        Serial.println(F("Forward stored"));
+    } else if (right == 1 && (count != junction_nodes[index] || junction_visited[index] < 3)) {
+        Serial.println(F("Right space detected"));
+        Serial.println(F("Turn right now"));
+        turnRight90();
+        Serial.println(F("Turn right done"));
+        movement_arr[count] = 'R';
+        count++;
+        Serial.println(F("Right turn stored"));
+
+        Serial.println(F("Move forward now"));
+        moveForward(110);
+        Serial.println(F("Forward movement done"));
+        movement_arr[count] = 'F';
+        count++;
+        Serial.println(F("Forward stored"));
+    } else if (front == 255) {
+        if (left == 255 && right == 255) {
+            Serial.println(F("End of maze reached"));
+            movement_arr[count] = '\0';
+            flags.is_LeBron_done = 1;
+            return;
+        }
+        Serial.println(F("Move forward now"));
+        moveForward(120);
+    } else {
+        if ((junction_visited[index] == 2 && right == 0) || junction_visited[index] == 3) {
+            Serial.println(F("All routes explored, removing junction"));
+            junction_visited[index] = 0;
+            index--;
+        }
+        backtrack();
+        Serial.println(F("Backtracking complete"));
+
+        if (movement_arr[count] == 'F') {
+            Serial.println(F("Reorienting: F (Forward)"));
+            Serial.println(F("Turn 180 now"));
+            turn180();
+            junction_visited[index] = 1;
+            Serial.println(F("Junction visited stored as 1"));
+        } else if (movement_arr[count] == 'L') {
+            Serial.println(F("Reorienting: L (Left)"));
+            Serial.println(F("Turn left now"));
+            turnLeft90();
+            junction_visited[index] = 2;
+            Serial.println(F("Junction visited stored as 2."));
+        } else if (movement_arr[count] == 'R') {
+            Serial.println(F("Reorienting: R (Right)"));
+            Serial.println(F("Turn right now"));
+            turnRight90();
+            junction_visited[index] = 3;
+            Serial.println(F("Junction visited stored as 3"));
+        }
+    }
+}
+
+void init_arrays() {
+    Serial.println(F("Initializing arrays"));
+
+    memset(movement_arr, 0, sizeof(movement_arr));
+    memset(junction_nodes, 0, sizeof(junction_nodes));
+    memset(junction_visited, 0, sizeof(junction_visited));
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    pinMode(IN1, OUTPUT);
+    pinMode(IN2, OUTPUT);
+    pinMode(IN3, OUTPUT);
+    pinMode(IN4, OUTPUT);
+    pinMode(FNA, OUTPUT);
+    pinMode(FNB, OUTPUT);
+    pinMode(LEFT_ENCODER_PIN, INPUT_PULLUP);
+    pinMode(RIGHT_ENCODER_PIN, INPUT_PULLUP);
+    attachPCINT(digitalPinToPCINT(LEFT_ENCODER_PIN), leftEncoderISP, CHANGE);
+    attachPCINT(digitalPinToPCINT(RIGHT_ENCODER_PIN), rightEncoderISP, CHANGE);
+    ultrasonicSetup(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+    ultrasonicSetup(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+    ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+    Wire.begin();
+    Wire.beginTransmission(MPU);
+    Wire.write(0x6B);
+    Wire.write(0);
+    Wire.endTransmission(true);
+    calculateError();
+
+    delay(1000);
+    updateMPU();
+
+    initialYaw = yaw;
+
+    Serial.print(F("Initial yaw set to: "));
+    Serial.print(initialYaw);
+}
+
+void loop() {
+    if (flags.is_LeBron_done == 0) {
+        search_maze();
+    } else {
+        if (flags.has_LeBron_written == 0) {
+            memoryWrite();
+            flags.has_LeBron_written = true;
+        }
+    }
 }
