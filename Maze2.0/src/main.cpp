@@ -27,7 +27,7 @@
 
 // Motor calibration to fix right-side drift
 #define LEFT_MOTOR_CALIBRATION 1.0
-#define RIGHT_MOTOR_CALIBRATION 0.95  // Reduce right motor speed if it's stronger
+#define RIGHT_MOTOR_CALIBRATION 1.0  // Reduce right motor speed if it's stronger
 
 // Encoder and distance calculation variables
 const unsigned int PULSES_PER_TURN = 20;
@@ -287,9 +287,12 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
         if (error > 180) error -= 360;
         if (error < -180) error += 360;
 
+        Serial.print("The error is ");
+        Serial.println(error);
+
         // If the error exceeds the tolerance, adjust motor speeds to correct the bearing
         if (abs(error) > BEARING_TOLERANCE && millis() - startTime < 2000) { // Only correct for 2 seconds
-            int correctionPWM = min(abs(error) * 2, 50); // Proportional correction factor
+            int correctionPWM = min(abs(error) * 8, 50); // Proportional correction factor //change the value of abs(error) * VAR 
 
             if (error > 0) {
                 // Turn slightly left (reduce left motor speed)
@@ -323,6 +326,7 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
 
         delay(10); // Small delay to avoid overloading the loop
     }
+    maintainBearing(mpu, bearing, motor);
 
     // Stop motors when the target is reached or movement is interrupted
     stopMotors();
@@ -360,15 +364,18 @@ void turnLeft90(MPUState &mpu, BearingState &bearing) {
     Serial.print(newRelativeBearing);
     Serial.println("°");
     
-    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
+    analogWrite(FNA, 255 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 255 * RIGHT_MOTOR_CALIBRATION);
+    delay(15);
+    analogWrite(FNA, 80 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     
     float startYaw = mpu.yaw;
-    float targetYaw = startYaw + 80.0;
+    float targetYaw = startYaw + 90.0;
     
     while (mpu.yaw < targetYaw) {
         updateMPU(mpu);
@@ -376,7 +383,7 @@ void turnLeft90(MPUState &mpu, BearingState &bearing) {
         Serial.print(mpu.yaw);
         Serial.print(", Target = ");
         Serial.println(targetYaw);
-        delay(10);
+        delay(1);
     }
     
     stopMotors();
@@ -414,12 +421,13 @@ void turnLeft90(MPUState &mpu, BearingState &bearing) {
         Serial.print("°, Error: ");
         Serial.println(error);
         
-        delay(10);
+        delay(1);
     }
     
     stopMotors();
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
+
 
 void turnRight90(MPUState &mpu, BearingState &bearing) {
     float newRelativeBearing = bearing.currentRelativeBearing - 90;
@@ -430,16 +438,20 @@ void turnRight90(MPUState &mpu, BearingState &bearing) {
     Serial.print("° to ");
     Serial.print(newRelativeBearing);
     Serial.println("°");
+
     
-    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
-    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
+    analogWrite(FNA, 255 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 225 * RIGHT_MOTOR_CALIBRATION);
+    delay(15);
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 80* RIGHT_MOTOR_CALIBRATION);
     
     float startYaw = mpu.yaw;
-    float targetYaw = startYaw - 80.0;
+    float targetYaw = startYaw - 90.0;
     
     while (mpu.yaw > targetYaw) {
         updateMPU(mpu);
@@ -447,7 +459,7 @@ void turnRight90(MPUState &mpu, BearingState &bearing) {
         Serial.print(mpu.yaw);
         Serial.print(", Target = ");
         Serial.println(targetYaw);
-        delay(10);
+        delay(1);
     }
     
     stopMotors();
@@ -485,7 +497,7 @@ void turnRight90(MPUState &mpu, BearingState &bearing) {
         Serial.print("°, Error: ");
         Serial.println(error);
         
-        delay(10);
+        delay(1);
     }
     
     stopMotors();
@@ -502,15 +514,15 @@ void turn180(MPUState &mpu, BearingState &bearing) {
     Serial.print(newRelativeBearing);
     Serial.println("°");
 
-    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNA, 115 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 115 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
 
     float startYaw = mpu.yaw;
-    float targetYaw = startYaw + 170.0;
+    float targetYaw = startYaw + 180.0;
 
     while (mpu.yaw < targetYaw) {
         updateMPU(mpu);
@@ -518,7 +530,7 @@ void turn180(MPUState &mpu, BearingState &bearing) {
         Serial.print(mpu.yaw);
         Serial.print(", Target = ");
         Serial.println(targetYaw);
-        delay(10);
+        delay(1);
     }
 
     stopMotors();
@@ -556,7 +568,7 @@ void turn180(MPUState &mpu, BearingState &bearing) {
         Serial.print("°, Error: ");
         Serial.println(error);
         
-        delay(10);
+        delay(1);
     }
 
     stopMotors();
@@ -663,4 +675,6 @@ void loop() {
     }
 
     delay(100);
+    // Forward25(mpuState, bearingState, motorState, encoderState);
+    // delay(1000);
 }
