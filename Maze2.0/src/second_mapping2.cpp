@@ -275,15 +275,15 @@ void search_maze()
 
     delay(5000);
 
-    if (front != 0 && (count != junction_nodes[index] || junction_visited[index] < 1)) // front has space
+    // allow movement if:
+    // i) front has space and LeBron is not at the same junction 
+    // ii) front has space and front route has not been visited
+    // logic is that if it is not the same junction, then the front route has not been visited yet or smtg liddat
+    // if in the previously saved movement_arr is of the same movement type,
+    // dont bother going in this direction, backtrack to previous junction, skip current loop
+    if (front != 0 && (count != junction_nodes[index] || junction_visited[index] < 1) 
+                    && final_arr[count] != 'F')
     {
-        // if in the previously saved movement_arr is of the same movement type,
-        // dont bother going in this direction, backtrack to previous junction, skip current loop
-        if (final_arr[count] == 'F')
-        {
-            backtrack_and_reorient();
-            return;
-        }
 
         Serial.println("Front space detected");
         if (left == 1 || right == 1)
@@ -301,16 +301,9 @@ void search_maze()
         count++;
         Serial.println("Forward movement stored.");
     }
-    else if (left != 0 && (count != junction_nodes[index] || junction_visited[index] < 2)) // left has space
+    else if (left != 0 && (count != junction_nodes[index] || junction_visited[index] < 2) 
+                        && final_arr[count] != 'L') 
     {
-        // if in the previously saved movement_arr is of the same movement type,
-        // dont bother going in this direction, backtrack to previous junction, skip current loop
-        if (final_arr[count] == 'L')
-        {
-            backtrack_and_reorient();
-            return;
-        }
-
         Serial.println("Left space detected");
         if (right == 1)
         {
@@ -334,16 +327,9 @@ void search_maze()
         count++;
         Serial.println("Forward movement stored.");
     }
-    else if (right != 0 && (count != junction_nodes[index] || junction_visited[index] < 3)) // right has space
+    else if (right != 0 && (count != junction_nodes[index] || junction_visited[index] < 3)
+                        && final_arr[count] != 'R') 
     {
-        // if in the previously saved movement_arr is of the same movement type,
-        // dont bother going in this direction, backtrack to previous junction, skip current loop
-        if (final_arr[count] == 'R')
-        {
-            backtrack_and_reorient();
-            return;
-        }
-
         Serial.println("Right space detected");
 
         Serial.println("Turn right now");
@@ -385,7 +371,7 @@ void search_maze()
     }
 
     // condition to loop backtrack to 2nd last junction node when current movement_arr is longer than previous one
-    if (!LeBron_finished_following && count > arrLen(final_arr))
+    if (final_arr[0] != 0 && count > arrLen(final_arr))
     {
         backtrack_and_reorient();
     }
@@ -435,7 +421,7 @@ void init_arrays()
     }
     else
     {
-        Serial.println("movement array copied");
+        Serial.println("Movement array copied.");
         memcpy(final_arr, movement_arr, sizeof(movement_arr));
     }
 }

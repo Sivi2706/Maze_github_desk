@@ -3,9 +3,9 @@
 #include <Wire.h>
 #include <EEPROM.h>
 
-// #define ROWS 8
-// #define COLS 8
-// #define SIZE ROWS * COLS
+#define ROWS 8
+#define COLS 8
+#define SIZE ROWS * COLS
 
 // // Ultrasonic Sensor Pins
 // #define FRONT_TRIGGER_PIN 7
@@ -96,10 +96,10 @@ void memoryWrite()
     EEPROM.put(addr, movement_arr);
     addr += sizeof(movement_arr);
 
-    EEPROM.put(addr, junction_nodes);
-    addr += sizeof(junction_nodes);
+    // EEPROM.put(addr, junction_nodes);
+    // addr += sizeof(junction_nodes);
 
-    EEPROM.put(addr, index);
+    // EEPROM.put(addr, index);
 
     Serial.println("EEPROM write complete.");
 }
@@ -128,10 +128,9 @@ int memoryRead()
     return 0;
 }
 
-void but_you_been_so_outta_touchtouchtouchtouchtouch()
+void you_who_seek_an_end_to_love_love_will_yield_to_business()
 {
-    Serial.println("But you been so outta touch touch touch touch touch.");
-    Serial.println("Thought about you way too much much much much much.");
+    Serial.println("LeBron is following previously saved movement array.");
     
     if (movement_arr[count] == 'F')
     {
@@ -156,9 +155,10 @@ void but_you_been_so_outta_touchtouchtouchtouchtouch()
     count++;
 }
 
-void init_arrays()
+void but_you_been_so_outta_touchtouchtouchtouchtouch()
 {
-    Serial.println("Initializing arrays.");
+    Serial.println("But you been so outta touch touch touch touch touch.");
+    Serial.println("Thought about you way too much much much much much.");
 
     memset(movement_arr, 0, sizeof(movement_arr));
     // memset(junction_nodes, 0, sizeof(junction_nodes));
@@ -182,13 +182,13 @@ void setup()
     // ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
     // Serial.println("Setup complete.");
 
-    init_arrays();
+    but_you_been_so_outta_touchtouchtouchtouchtouch();
 }
 
 void loop()
 {
     if (!is_LeBron_done)
     {
-        but_you_been_so_outta_touchtouchtouchtouchtouch();
+        you_who_seek_an_end_to_love_love_will_yield_to_business();
     }
 }
