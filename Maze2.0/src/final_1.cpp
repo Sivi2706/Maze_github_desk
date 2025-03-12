@@ -29,7 +29,7 @@
 
 #define ROWS 8
 #define COLS 8
-#define MAX_ELEMENTS ROWS * COLS
+#define SIZE ROWS * COLS
 
 //Target distance to travel
 #define TARGET_DISTANCE 25
@@ -67,11 +67,20 @@ float elapsedTime, previousTime, currentTime;
 float initialYaw = 0.0;
 //float ALPHA = 0.96; //could be added into code instead to reduce SRAM usage
 
+//maze setup
+char movement_arr[SIZE];
+uint8_t junction_nodes[SIZE];
+uint8_t junction_visited[SIZE];
+uint8_t index = 0;
+uint8_t count = 0;
+
 //Flags to store bools
 struct BooleanFlags {
     unsigned int isMovingForward = 0;
     unsigned int targetReached = 0;
     unsigned int correctionEnabled = 1;
+    unsigned int is_LeBron_done = 0;
+    unsigned int has_LeBron_written = 0;
 }
 
 //ISP for rotary encoders
@@ -266,6 +275,7 @@ void maintainBearing() {
     }
 }
 
+//updates the distance travelled
 void updateDistance() {
     if (BooleanFlags.isMovingForward) {
         leftTotalDistance += (leftPulses / (float)PULSES_PER_TURN) * WHEEL_CIRCUMFERENCE;
@@ -392,4 +402,64 @@ void stopMotors() {
     digitalWrite(IN4, LOW);
 }
 
-void 
+
+
+
+
+
+
+
+
+
+//Resets the EEPROM memory
+void memoryReset() {
+    Serial.println(F("Reset Memory"));
+    for (int i = 0; i < EEPROM.length(); i++) {
+        EEPROM.write(i, 0);
+    }
+    Serial.println(F("Reset complete"));
+}
+
+//Writes the movement to EEPROM
+void memoryWrite() {
+    Serial.println("Executing memory write");
+    int addr = 0;
+
+    EEPROM.put(addr, movement_arr);
+    addr += sizeof(movement_arr);
+
+    EEPROM.put(addr, junction_nodes);
+    addr += sizeof(junction_nodes);
+
+    EEPROM.put(addr, index);
+
+    Serial.println(F("EEPROM write complete"));
+}
+
+//Reads the movement array from EEPROM
+uint8_t memoryRead() {
+    Serial.println(F("Reading from memory"));
+    uint8_t addr = 0;
+    uint8_t check = 0;
+
+    if (EEPROM.get(addr, check) == 0xFFFF) {
+        Serial.println(F("EEPROM is empty"));
+        return 255;
+    }
+
+    EEPROM.get(addr, movement_arr);
+    addr += sizeof(movement_arr);
+
+    EEPROM.get(and, junction_nodes);
+    addr += sizeof(junction_nodes);
+
+    EEPROM.get(addr, index);
+
+    Serial.println(F("EEPROM read complete"));
+    return 0;
+}
+
+void backtrack() {
+    Serial.println(F("Backtrack starting"));
+    
+}
