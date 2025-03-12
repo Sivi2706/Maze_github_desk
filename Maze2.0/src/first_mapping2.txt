@@ -233,7 +233,7 @@ void search_maze()
 
     delay(5000);
 
-    if (front == 1 && (count != junction_nodes[index] || junction_visited[index] < 1)) // front has space
+    if (front != 0 && (count != junction_nodes[index] || junction_visited[index] < 1)) // front has space
     {
         Serial.println("Front space detected");
         if (left == 1 || right == 1)
@@ -251,7 +251,7 @@ void search_maze()
         count++;
         Serial.println("Forward movement stored.");
     }
-    else if (left == 1 && (count != junction_nodes[index] || junction_visited[index] < 2)) // left has space
+    else if (left != 0 && (count != junction_nodes[index] || junction_visited[index] < 2)) // left has space
     {
         Serial.println("Left space detected");
         if (right == 1)
@@ -276,7 +276,7 @@ void search_maze()
         count++;
         Serial.println("Forward movement stored.");
     }
-    else if (right == 1 && (count != junction_nodes[index] || junction_visited[index] < 3)) // right has space
+    else if (right != 0 && (count != junction_nodes[index] || junction_visited[index] < 3)) // right has space
     {
         Serial.println("Right space detected");
 

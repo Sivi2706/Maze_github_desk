@@ -150,9 +150,10 @@ int memoryRead()
 {
     Serial.println("Executing memoryRead()");
     int addr = 0;
-    int check = 0;
+    byte check = 0;
+    EEPROM.get(addr, check);
 
-    if (EEPROM.get(addr, check) == 0xFFFF) 
+    if (check == 0xFF) 
     {
         Serial.println("EEPROM is empty.");
         return -1;  // EEPROM is empty
@@ -278,7 +279,7 @@ void search_maze()
     {
         // if in the previously saved movement_arr is of the same movement type,
         // dont bother going in this direction, backtrack to previous junction, skip current loop
-        if (final_arr[count] != 'F')
+        if (final_arr[count] == 'F')
         {
             backtrack_and_reorient();
             return;
@@ -304,7 +305,7 @@ void search_maze()
     {
         // if in the previously saved movement_arr is of the same movement type,
         // dont bother going in this direction, backtrack to previous junction, skip current loop
-        if (final_arr[count] != 'L')
+        if (final_arr[count] == 'L')
         {
             backtrack_and_reorient();
             return;
@@ -337,7 +338,7 @@ void search_maze()
     {
         // if in the previously saved movement_arr is of the same movement type,
         // dont bother going in this direction, backtrack to previous junction, skip current loop
-        if (final_arr[count] != 'R')
+        if (final_arr[count] == 'R')
         {
             backtrack_and_reorient();
             return;
@@ -427,13 +428,15 @@ void init_arrays()
     memset(junction_nodes, 0, sizeof(junction_nodes));
     memset(junction_visited, 0, sizeof(junction_visited));
 
-    if (memoryRead() == 0)      // if EEPROM is not empty
+    if (memoryRead() == -1)      // if EEPROM is not empty
     {
-        memcpy(final_arr, movement_arr, sizeof(movement_arr));
+        Serial.println("EEPROM is empty.");
+        LeBron_finished_following = true;
     }
     else
     {
-        LeBron_finished_following = true;
+        Serial.println("movement array copied");
+        memcpy(final_arr, movement_arr, sizeof(movement_arr));
     }
 }
 
