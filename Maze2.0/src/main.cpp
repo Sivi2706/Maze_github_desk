@@ -258,8 +258,11 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
 
     motor.isMovingForward = true;
 
-    // Store the target bearing at the start of movement
-    float targetBearing = bearing.currentRelativeBearing;
+    // Store the current absolute bearing at the start of movement
+    float targetAbsoluteBearing = mpu.yaw; // Use the MPU's raw yaw as the absolute bearing
+
+    Serial.print("Starting movement at absolute bearing: ");
+    Serial.println(targetAbsoluteBearing);
 
     // Start moving forward
     analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
@@ -273,15 +276,12 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
 
     unsigned long startTime = millis(); // Track the start time of the movement
 
-    // Loop to maintain bearing while moving forward
+    // Loop to maintain absolute bearing while moving forward
     while (motor.isMovingForward && !motor.targetReached) {
         updateMPU(mpu); // Update MPU data
 
-        // Calculate the current relative bearing
-        float currentRelativeBearing = getCurrentRelativeBearing(mpu, bearing);
-
-        // Calculate the error between the target and current bearing
-        float error = targetBearing - currentRelativeBearing;
+        // Calculate the error between the target and current absolute bearing
+        float error = targetAbsoluteBearing - mpu.yaw;
 
         // Normalize the error to the range [-180, 180]
         if (error > 180) error -= 360;
@@ -360,10 +360,10 @@ void turnLeft90(MPUState &mpu, BearingState &bearing) {
     Serial.print(newRelativeBearing);
     Serial.println("°");
     
-    analogWrite(FNA, 220 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-    analogWrite(FNB, 220 * RIGHT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
     
@@ -431,10 +431,10 @@ void turnRight90(MPUState &mpu, BearingState &bearing) {
     Serial.print(newRelativeBearing);
     Serial.println("°");
     
-    analogWrite(FNA, 220 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
-    analogWrite(FNB, 220 * RIGHT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
     
@@ -502,10 +502,10 @@ void turn180(MPUState &mpu, BearingState &bearing) {
     Serial.print(newRelativeBearing);
     Serial.println("°");
 
-    analogWrite(FNA, 120 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-    analogWrite(FNB, 120 * RIGHT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
 
