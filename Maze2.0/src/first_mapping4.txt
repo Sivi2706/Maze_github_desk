@@ -355,8 +355,8 @@ void init_arrays()
     memset(junction_nodes, 0, sizeof(junction_nodes));
     memset(junction_visited, 0, sizeof(junction_visited));
 
-    memoryReset();
-    Serial.println("EEPROM reseted.");
+    // memoryReset();
+    // Serial.println("EEPROM reseted.");
 }
 
 void setup()

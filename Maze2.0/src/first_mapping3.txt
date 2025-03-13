@@ -260,11 +260,15 @@ void search_maze()
 
     delay(5000);
 
-    if (front == -1 && left == -1 && right == -1)
+    if ((front == -1 && left == -1) || (front == -1 && right == -1))
     {
-        Serial.println("End of maze reached.");
-        movement_arr[count] = '\0';
-        is_LeBron_done = true;
+        if (front == -1 && left == -1 && right == -1)
+        {
+            Serial.println("End of maze reached.");
+            movement_arr[count] = '\0';
+            is_LeBron_done = true;
+            return;
+        }
         return;
     }
 
@@ -350,6 +354,9 @@ void init_arrays()
     memset(movement_arr, 0, sizeof(movement_arr));
     memset(junction_nodes, 0, sizeof(junction_nodes));
     memset(junction_visited, 0, sizeof(junction_visited));
+
+    // memoryReset();
+    // Serial.println("EEPROM reseted.");
 }
 
 void setup()
