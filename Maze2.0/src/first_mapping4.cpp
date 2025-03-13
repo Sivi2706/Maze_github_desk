@@ -1,5 +1,6 @@
 #include <EEPROM.h>
-#include <motor_functions.h>
+// #include <motor_functions.h>
+#include "og_motor_functions.h"
 
 char movement_arr[SIZE];
 uint8_t junction_nodes[SIZE];
@@ -58,7 +59,8 @@ int memoryRead()
 void backtrack_and_reorient()
 {
     Serial.println("backtrack_and_reorient starting.");
-    turn_180(mpuState, bearingState);
+    // turn_180(mpuState, bearingState);
+    turn_180();
     delay(5000);
 
     for (count -= 1; count > junction_nodes[index]; count--)
@@ -69,17 +71,20 @@ void backtrack_and_reorient()
         if (movement_arr[count] == 'F')
         {
             // Serial.println("Move forward now");
-            Forward25(mpuState, bearingState, motorState, encoderState);
+            // Forward25(mpuState, bearingState, motorState, encoderState);
+            Forward25(100);
         }
         else if (movement_arr[count] == 'L')
         {
             // Serial.println("Turn right now");
-            turn_right_90(mpuState, bearingState);
+            // turn_right_90(mpuState, bearingState);
+            turn_right_90();
         }
         else if (movement_arr[count] == 'R')
         {
             // Serial.println("Turn left now");
-            turn_left_90(mpuState, bearingState);
+            // turn_left_90(mpuState, bearingState);
+            turn_left_90();
         }
     }
 
@@ -87,7 +92,8 @@ void backtrack_and_reorient()
     if (movement_arr[junction_nodes[index]] == 'F')
     {
         // Serial.println("Move forward now");
-        Forward25(mpuState, bearingState, motorState, encoderState);
+        // Forward25(mpuState, bearingState, motorState, encoderState);
+        Forward25(100);
     }
 
     // Reorientation
@@ -95,7 +101,8 @@ void backtrack_and_reorient()
     {
         // Serial.println("Reorienting: F (Forward)");
         // Serial.println("Turn 180 now");
-        turn_180(mpuState, bearingState);
+        // turn_180(mpuState, bearingState);
+        turn_180();
         junction_visited[index] = 1;
         // Serial.println("Junction visited stored as 1.");
     }
@@ -103,7 +110,8 @@ void backtrack_and_reorient()
     {
         // Serial.println("Reorienting: L (Left)");
         // Serial.println("Turn left now");
-        turn_left_90(mpuState, bearingState);
+        // turn_left_90(mpuState, bearingState);
+        turn_left_90();
         junction_visited[index] = 2;
         // Serial.println("Junction visited stored as 2.");
     }
@@ -111,7 +119,8 @@ void backtrack_and_reorient()
     {
         // Serial.println("Reorienting: R (Right)");
         // Serial.println("Turn right now");
-        turn_right_90(mpuState, bearingState);
+        // turn_right_90(mpuState, bearingState);
+        turn_right_90();
         junction_visited[index] = 3;
         // Serial.println("Junction visited stored as 3.");
     }
@@ -172,7 +181,8 @@ void search_maze()
         }
 
         // Serial.println("Move forward now.");
-        Forward25(mpuState, bearingState, motorState, encoderState);
+        // Forward25(mpuState, bearingState, motorState, encoderState);
+        Forward25(100);
         // Serial.println("Forward movement done.");
         movement_arr[count] = 'F';
         count++;
@@ -191,14 +201,16 @@ void search_maze()
         }
 
         // Serial.println("Turn left now");
-        turn_left_90(mpuState, bearingState);
+        // turn_left_90(mpuState, bearingState);
+        turn_left_90();
         // Serial.println("Turn left 90° done.");
         movement_arr[count] = 'L';
         count++;
         // Serial.println("Left turn stored.");
 
         // Serial.println("Move forward now.");
-        Forward25(mpuState, bearingState, motorState, encoderState);
+        // Forward25(mpuState, bearingState, motorState, encoderState);
+        Forward25(100);
         // Serial.println("Forward movement done.");
         movement_arr[count] = 'F';
         count++;
@@ -209,14 +221,16 @@ void search_maze()
         // Serial.println("Right space detected");
 
         // Serial.println("Turn right now");
-        turn_right_90(mpuState, bearingState);
+        // turn_right_90(mpuState, bearingState);
+        turn_right_90();
         // Serial.println("Turn right 90° done.");
         movement_arr[count] = 'R';
         count++;
         // Serial.println("Right turn stored.");
 
         // Serial.println("Move forward now.");
-        Forward25(mpuState, bearingState, motorState, encoderState);
+        // Forward25(mpuState, bearingState, motorState, encoderState);
+        Forward25(100);
         // Serial.println("Forward movement done.");
         movement_arr[count] = 'F';
         count++;
@@ -269,19 +283,20 @@ void setup()
     Wire.write(0x6B);
     Wire.write(0);
     Wire.endTransmission(true);
-    calculateError(mpuState);
+    // calculateError(mpuState);
     
-    encoderState.leftTotalDistance = 0.0;
-    encoderState.rightTotalDistance = 0.0;
-    motorState.targetReached = false;
+    // encoderState.leftTotalDistance = 0.0;
+    // encoderState.rightTotalDistance = 0.0;
+    // motorState.targetReached = false;
 
     delay(1000);
-    updateMPU(mpuState);
-    mpuState.initialYaw = mpuState.yaw;
-    bearingState.currentRelativeBearing = 0.0;
+    updateMPU();
+    // updateMPU(mpuState);
+    // mpuState.initialYaw = mpuState.yaw;
+    // bearingState.currentRelativeBearing = 0.0;
 
-    Serial.print("Initial yaw set to: ");
-    Serial.println(mpuState.initialYaw);
+    // Serial.print("Initial yaw set to: ");
+    // Serial.println(mpuState.initialYaw);
     // Serial.println("Starting with relative bearing of 0 degrees");
 
     init_arrays();
