@@ -956,15 +956,15 @@ void setup()
 
 void loop()
 {
-    static unsigned long lastPrintTime = 0;
-    const unsigned long printInterval = 500;
+    // static unsigned long lastPrintTime = 0;
+    // const unsigned long printInterval = 500;
 
-    updateMPU(mpuState);
+    // updateMPU(mpuState);
 
-    if (millis() - lastPrintTime >= printInterval) {
-        printCurrentBearing(mpuState, bearingState);
-        lastPrintTime = millis();
-    }
+    // if (millis() - lastPrintTime >= printInterval) {
+    //     printCurrentBearing(mpuState, bearingState);
+    //     lastPrintTime = millis();
+    // }
 
     if (flags.is_LeBron_done == 0) 
     {
