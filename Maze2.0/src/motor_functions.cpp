@@ -6,6 +6,8 @@ MotorState motorState;
 MPUState mpuState;
 BearingState bearingState;
 
+
+
 void leftEncoderISR() { encoderState.leftPulses++; }
 void rightEncoderISR() { encoderState.rightPulses++; }
 
@@ -260,7 +262,7 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
     Serial.println("Forward movement complete.");
 }
 
-void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
+void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder, int trigPin1, int echoPin1, int trigPin2, int echoPin2, int trigPin3, int echoPin3) {
     encoder.leftTotalDistance = 0.0;
     encoder.rightTotalDistance = 0.0;
     motor.targetReached = false;
@@ -278,10 +280,40 @@ void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderS
         Serial.println("Target distance reached.");
     }
 
+    // Align to bearing after stopping
+    float currentRelativeBearing = getCurrentRelativeBearing(mpu, bearing);
+    alignToBearing(mpu, bearing, currentRelativeBearing);
+
+    // Check ultrasonic sensors and correct if necessary
+    float distance1 = getDistance(trigPin1, echoPin1);
+    float distance2 = getDistance(trigPin2, echoPin2);
+    float distance3 = getDistance(trigPin3, echoPin3);
+
+    if (distance1 < 3.5) {
+        Serial.println("Obstacle detected within 5 cm. Correcting position...");
+
+        // Move backward slightly to avoid collision
+        Serial.println("Moving backward...");
+        analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
+        analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
+        digitalWrite(IN1, LOW);
+        digitalWrite(IN2, HIGH);
+        digitalWrite(IN3, LOW);
+        digitalWrite(IN4, HIGH);
+        delay(200); // Move backward
+        stopMotors();
+
+        // Align to bearing after reversing
+        Serial.println("Aligning to bearing after reversing...");
+        alignToBearing(mpu, bearing, currentRelativeBearing);
+    }
+
     bearing.correctionEnabled = true;
 }
 
+
 void turn_left_90(MPUState &mpu, BearingState &bearing) {
+    // Calculate new relative bearing after a left turn
     float newRelativeBearing = bearing.currentRelativeBearing + 90;
     if (newRelativeBearing >= 360) newRelativeBearing -= 360;
     
@@ -291,34 +323,41 @@ void turn_left_90(MPUState &mpu, BearingState &bearing) {
     Serial.print(newRelativeBearing);
     Serial.println("°");
     
+    // Start turning left
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
-    analogWrite(FNA, 255 * LEFT_MOTOR_CALIBRATION);
-    analogWrite(FNB, 255 * RIGHT_MOTOR_CALIBRATION);
-    delay(15);
-    analogWrite(FNA, 80 * LEFT_MOTOR_CALIBRATION);
-    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
+    analogWrite(FNA, 0 * LEFT_MOTOR_CALIBRATION);  // Left motor backward
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION); // Right motor forward
     
+    // Turn roughly 80 degrees (allows for overshoot)
     float startYaw = mpu.yaw;
-    float targetYaw = startYaw + 90.0;
+    float targetYaw = startYaw + 85.0;
     
     while (mpu.yaw < targetYaw) {
         updateMPU(mpu);
+        
+        // Print current yaw for debugging
         Serial.print("Turning: Current Yaw = ");
         Serial.print(mpu.yaw);
         Serial.print(", Target = ");
         Serial.println(targetYaw);
-        delay(1);
+        
+        delay(10);  // Small delay for stability
     }
     
+    // Stop motors after rough turn
     stopMotors();
     Serial.println("Rough turn complete");
     
+    // Update current relative bearing
     bearing.currentRelativeBearing = newRelativeBearing;
+    
+    // Fine-tune alignment with the new bearing
     alignToBearing(mpu, bearing, newRelativeBearing);
     
+    // Wait for the robot to maintain its bearing for 1 second
     unsigned long alignmentStartTime = millis();
     bool isAligned = false;
     
@@ -327,6 +366,7 @@ void turn_left_90(MPUState &mpu, BearingState &bearing) {
         float currentRelative = getCurrentRelativeBearing(mpu, bearing);
         float error = newRelativeBearing - currentRelative;
         
+        // Normalize error to the range [-180, 180]
         if (error > 180) error -= 360;
         if (error < -180) error += 360;
         
@@ -335,14 +375,16 @@ void turn_left_90(MPUState &mpu, BearingState &bearing) {
                 alignmentStartTime = millis();
             }
             
-            if (millis() - alignmentStartTime >= 500) {
+            // Check if the robot has maintained the bearing for 1 second
+            if (millis() - alignmentStartTime >= 1000) {
                 isAligned = true;
             }
         } else {
-            alignmentStartTime = 0;
+            alignmentStartTime = 0;  // Reset the timer if the robot goes out of alignment
             maintainBearing(mpu, bearing, motorState);
         }
         
+        // Print alignment status for debugging
         Serial.print("Aligning - Current relative bearing: ");
         Serial.print(currentRelative);
         Serial.print("°, Error: ");
@@ -351,11 +393,13 @@ void turn_left_90(MPUState &mpu, BearingState &bearing) {
         delay(1);
     }
     
+    // Stop motors after alignment
     stopMotors();
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
 
 void turn_right_90(MPUState &mpu, BearingState &bearing) {
+    // Calculate new relative bearing after a right turn
     float newRelativeBearing = bearing.currentRelativeBearing - 90;
     if (newRelativeBearing < 0) newRelativeBearing += 360;
     
@@ -364,36 +408,42 @@ void turn_right_90(MPUState &mpu, BearingState &bearing) {
     Serial.print("° to ");
     Serial.print(newRelativeBearing);
     Serial.println("°");
-
     
+    // Start turning right
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
-    analogWrite(FNA, 255 * LEFT_MOTOR_CALIBRATION);
-    analogWrite(FNB, 225 * RIGHT_MOTOR_CALIBRATION);
-    delay(15);
-    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
-    analogWrite(FNB, 80* RIGHT_MOTOR_CALIBRATION);
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);  // Left motor forward
+    analogWrite(FNB, 0 * RIGHT_MOTOR_CALIBRATION); // Right motor backward
     
+    // Turn roughly 80 degrees (allows for overshoot)
     float startYaw = mpu.yaw;
-    float targetYaw = startYaw - 90.0;
+    float targetYaw = startYaw - 85.0;
     
     while (mpu.yaw > targetYaw) {
         updateMPU(mpu);
+        
+        // Print current yaw for debugging
         Serial.print("Turning: Current Yaw = ");
         Serial.print(mpu.yaw);
         Serial.print(", Target = ");
         Serial.println(targetYaw);
-        delay(1);
+        
+        delay(10);  // Small delay for stability
     }
     
+    // Stop motors after rough turn
     stopMotors();
     Serial.println("Rough turn complete");
     
+    // Update current relative bearing
     bearing.currentRelativeBearing = newRelativeBearing;
+    
+    // Fine-tune alignment with the new bearing
     alignToBearing(mpu, bearing, newRelativeBearing);
     
+    // Wait for the robot to maintain its bearing for 1 second
     unsigned long alignmentStartTime = millis();
     bool isAligned = false;
     
@@ -402,6 +452,7 @@ void turn_right_90(MPUState &mpu, BearingState &bearing) {
         float currentRelative = getCurrentRelativeBearing(mpu, bearing);
         float error = newRelativeBearing - currentRelative;
         
+        // Normalize error to the range [-180, 180]
         if (error > 180) error -= 360;
         if (error < -180) error += 360;
         
@@ -410,14 +461,16 @@ void turn_right_90(MPUState &mpu, BearingState &bearing) {
                 alignmentStartTime = millis();
             }
             
-            if (millis() - alignmentStartTime >= 500) {
+            // Check if the robot has maintained the bearing for 1 second
+            if (millis() - alignmentStartTime >= 1000) {
                 isAligned = true;
             }
         } else {
-            alignmentStartTime = 0;
+            alignmentStartTime = 0;  // Reset the timer if the robot goes out of alignment
             maintainBearing(mpu, bearing, motorState);
         }
         
+        // Print alignment status for debugging
         Serial.print("Aligning - Current relative bearing: ");
         Serial.print(currentRelative);
         Serial.print("°, Error: ");
@@ -426,9 +479,11 @@ void turn_right_90(MPUState &mpu, BearingState &bearing) {
         delay(1);
     }
     
+    // Stop motors after alignment
     stopMotors();
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
+
 
 void turn_180(MPUState &mpu, BearingState &bearing) {
     float newRelativeBearing = bearing.currentRelativeBearing + 180;
