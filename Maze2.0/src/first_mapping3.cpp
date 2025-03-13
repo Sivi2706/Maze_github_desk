@@ -48,7 +48,7 @@ float getDistance(int trigPin, int echoPin)
     return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
 }
 
-uint8_t checkDist(int trigPin, int echoPin)
+int checkDist(int trigPin, int echoPin)
 {
     // this function should
     // return 0 if there is no space in that direction
@@ -59,8 +59,8 @@ uint8_t checkDist(int trigPin, int echoPin)
     Serial.print("Distance: ");
     Serial.println(distance);
 
-    if (distance > 200)
-        return 255;
+    if (distance > 75)
+        return -1;
     else if (distance <= 10)
         return 0;
     else
@@ -143,7 +143,7 @@ void memoryWrite()
     Serial.println("EEPROM write complete.");
 }
 
-uint8_t memoryRead() 
+int memoryRead() 
 {
     Serial.println("Executing memoryRead()");
     uint8_t addr = 0;
@@ -152,7 +152,7 @@ uint8_t memoryRead()
     if (EEPROM.get(addr, check) == 0xFFFF) 
     {
         Serial.println("EEPROM is empty.");
-        return 255;  // EEPROM is empty
+        return -1;  // EEPROM is empty
     }
 
     EEPROM.get(addr, movement_arr);
@@ -167,9 +167,9 @@ uint8_t memoryRead()
     return 0;
 }
 
-void backtrack()
+void backtrack_and_reorient()
 {
-    Serial.println("Backtrack starting.");
+    Serial.println("backtrack_and_reorient starting.");
     turn_180();
     delay(5000);
 
@@ -195,10 +195,37 @@ void backtrack()
         }
     }
 
+    // offset comepensation for front moevement from junction node only
     if (movement_arr[junction_nodes[index]] == 'F')
     {
         Serial.println("Move forward now");
         move_forward();
+    }
+
+    // Reorientation
+    if (movement_arr[count] == 'F')
+    {
+        Serial.println("Reorienting: F (Forward)");
+        Serial.println("Turn 180 now");
+        turn_180();
+        junction_visited[index] = 1;
+        Serial.println("Junction visited stored as 1.");
+    }
+    else if (movement_arr[count] == 'L')
+    {
+        Serial.println("Reorienting: L (Left)");
+        Serial.println("Turn left now");
+        turn_left_90();
+        junction_visited[index] = 2;
+        Serial.println("Junction visited stored as 2.");
+    }
+    else if (movement_arr[count] == 'R')
+    {
+        Serial.println("Reorienting: R (Right)");
+        Serial.println("Turn right now");
+        turn_right_90();
+        junction_visited[index] = 3;
+        Serial.println("Junction visited stored as 3.");
     }
 }
 
@@ -208,7 +235,7 @@ void search_maze()
     Serial.print("Currently in loop: ");
     Serial.println(count);
 
-    uint8_t front, left, right;
+    int front, left, right;
 
     front = checkDist(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
     left = checkDist(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
@@ -232,6 +259,14 @@ void search_maze()
     Serial.println("-----");
 
     delay(5000);
+
+    if (front == -1 && left == -1 && right == -1)
+    {
+        Serial.println("End of maze reached.");
+        movement_arr[count] = '\0';
+        is_LeBron_done = true;
+        return;
+    }
 
     if (front != 0 && (count != junction_nodes[index] || junction_visited[index] < 1)) // front has space
     {
@@ -294,18 +329,6 @@ void search_maze()
         count++;
         Serial.println("Forward movement stored.");
     }
-    else if (front == 255)
-    {
-        if (left == 255 && right == 255)
-        {
-            Serial.println("End of maze reached.");
-            movement_arr[count] = '\0';
-            is_LeBron_done = true;
-            return;
-        }
-        Serial.println("Move forward now.");
-        move_forward();
-    }
     else
     {
         if ((junction_visited[index] == 2 && right == 0) || junction_visited[index] == 3)
@@ -315,33 +338,8 @@ void search_maze()
             index--;
         }
 
-        backtrack();
-        Serial.println("Backtracking complete.");
-
-        if (movement_arr[count] == 'F')
-        {
-            Serial.println("Reorienting: F (Forward)");
-            Serial.println("Turn 180 now");
-            turn_180();
-            junction_visited[index] = 1;
-            Serial.println("Junction visited stored as 1.");
-        }
-        else if (movement_arr[count] == 'L')
-        {
-            Serial.println("Reorienting: L (Left)");
-            Serial.println("Turn left now");
-            turn_left_90();
-            junction_visited[index] = 2;
-            Serial.println("Junction visited stored as 2.");
-        }
-        else if (movement_arr[count] == 'R')
-        {
-            Serial.println("Reorienting: R (Right)");
-            Serial.println("Turn right now");
-            turn_right_90();
-            junction_visited[index] = 3;
-            Serial.println("Junction visited stored as 3.");
-        }
+        backtrack_and_reorient();
+        Serial.println("backtrack_and_reorienting complete.");
     }
 }
 

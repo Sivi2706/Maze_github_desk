@@ -23,15 +23,12 @@
 #define FNA 3
 #define FNB 11
 
-char final_arr[SIZE];
 char movement_arr[SIZE];
-int junction_nodes[SIZE];
-int junction_visited[SIZE];
-int index = 0;
-int node_temp = 0;
-int count = 0;
+uint8_t junction_nodes[SIZE];
+uint8_t junction_visited[SIZE];
+uint8_t index = 0;
+uint8_t count = 0;
 bool is_LeBron_done = false;
-bool LeBron_finished_following = false;
 bool has_LeBron_written = false;
 
 void ultrasonicSetup(int trigPin, int echoPin)
@@ -62,7 +59,7 @@ int checkDist(int trigPin, int echoPin)
     Serial.print("Distance: ");
     Serial.println(distance);
 
-    if (distance > 75)
+    if (distance > 200)
         return -1;
     else if (distance <= 10)
         return 0;
@@ -149,11 +146,10 @@ void memoryWrite()
 int memoryRead() 
 {
     Serial.println("Executing memoryRead()");
-    int addr = 0;
-    byte check = 0;
-    EEPROM.get(addr, check);
+    uint8_t addr = 0;
+    uint8_t check = 0;
 
-    if(EEPROM.read(0) != 0)
+    if (EEPROM.get(addr, check) == 0xFFFF) 
     {
         Serial.println("EEPROM is empty.");
         return -1;  // EEPROM is empty
@@ -171,17 +167,7 @@ int memoryRead()
     return 0;
 }
 
-uint8_t arrLen(char* lebroooooooooooooon)
-{
-    uint8_t len = 0;
-    while (lebroooooooooooooon[len]!= '\0')
-    {
-        len++;
-    }
-    return len;
-}
-
-void backtrack_and_reorient()
+void backtrack()
 {
     Serial.println("Backtrack starting.");
     turn_180();
@@ -209,37 +195,10 @@ void backtrack_and_reorient()
         }
     }
 
-    // offset for front movement from junction node only
     if (movement_arr[junction_nodes[index]] == 'F')
     {
         Serial.println("Move forward now");
         move_forward();
-    }
-
-    // Reorientation
-    if (movement_arr[count] == 'F')
-    {
-        Serial.println("Reorienting: F (Forward)");
-        Serial.println("Turn 180 now");
-        turn_180();
-        junction_visited[index] = 1;
-        Serial.println("Junction visited stored as 1.");
-    }
-    else if (movement_arr[count] == 'L')
-    {
-        Serial.println("Reorienting: L (Left)");
-        Serial.println("Turn left now");
-        turn_left_90();
-        junction_visited[index] = 2;
-        Serial.println("Junction visited stored as 2.");
-    }
-    else if (movement_arr[count] == 'R')
-    {
-        Serial.println("Reorienting: R (Right)");
-        Serial.println("Turn right now");
-        turn_right_90();
-        junction_visited[index] = 3;
-        Serial.println("Junction visited stored as 3.");
     }
 }
 
@@ -274,22 +233,7 @@ void search_maze()
 
     delay(5000);
 
-    if (front == -1 && left == -1 && right == -1)
-    {
-        Serial.println("End of maze reached.");
-        movement_arr[count] = '\0';
-        is_LeBron_done = true;
-        return;
-    }
-
-    // allow movement if:
-    // i) front has space and LeBron is not at the same junction 
-    // ii) front has space and front route has not been visited
-    // logic is that if it is not the same junction, then the front route has not been visited yet or smtg liddat
-    // if in the previously saved movement_arr is of the same movement type,
-    // dont bother going in this direction, backtrack to previous junction, skip current loop
-    if (front != 0 && (count != junction_nodes[index] || junction_visited[index] < 1) 
-                    && final_arr[count] != 'F')
+    if (front != 0 && (count != junction_nodes[index] || junction_visited[index] < 1)) // front has space
     {
         Serial.println("Front space detected");
         if (left == 1 || right == 1)
@@ -307,8 +251,7 @@ void search_maze()
         count++;
         Serial.println("Forward movement stored.");
     }
-    else if (left != 0 && (count != junction_nodes[index] || junction_visited[index] < 2) 
-                        && final_arr[count] != 'L') 
+    else if (left != 0 && (count != junction_nodes[index] || junction_visited[index] < 2)) // left has space
     {
         Serial.println("Left space detected");
         if (right == 1)
@@ -333,8 +276,7 @@ void search_maze()
         count++;
         Serial.println("Forward movement stored.");
     }
-    else if (right != 0 && (count != junction_nodes[index] || junction_visited[index] < 3)
-                        && final_arr[count] != 'R') 
+    else if (right != 0 && (count != junction_nodes[index] || junction_visited[index] < 3)) // right has space
     {
         Serial.println("Right space detected");
 
@@ -352,51 +294,54 @@ void search_maze()
         count++;
         Serial.println("Forward movement stored.");
     }
-    else // dead end
+    else if (front == 255)
     {
-        // all junction visited
+        if (left == 255 && right == 255)
+        {
+            Serial.println("End of maze reached.");
+            movement_arr[count] = '\0';
+            is_LeBron_done = true;
+            return;
+        }
+        Serial.println("Move forward now.");
+        move_forward();
+    }
+    else
+    {
         if ((junction_visited[index] == 2 && right == 0) || junction_visited[index] == 3)
         {
             Serial.println("All routes explored, removing junction.");
             junction_visited[index] = 0;
             index--;
         }
-        backtrack_and_reorient();
+
+        backtrack();
         Serial.println("Backtracking complete.");
-    }
 
-    // condition to loop backtrack to 2nd last junction node when current movement_arr is longer than previous one
-    if (final_arr[0] != 0 && count > arrLen(final_arr))
-    {
-        backtrack_and_reorient();
-    }
-}
-
-void you_who_seek_an_end_to_love_love_will_yield_to_business()
-{
-    if (count <= junction_nodes[index])
-    {
         if (movement_arr[count] == 'F')
         {
-            Serial.println("Move forward now.");
-            move_forward();
+            Serial.println("Reorienting: F (Forward)");
+            Serial.println("Turn 180 now");
+            turn_180();
+            junction_visited[index] = 1;
+            Serial.println("Junction visited stored as 1.");
         }
         else if (movement_arr[count] == 'L')
         {
-            Serial.println("Turn right now.");
-            turn_right_90();
+            Serial.println("Reorienting: L (Left)");
+            Serial.println("Turn left now");
+            turn_left_90();
+            junction_visited[index] = 2;
+            Serial.println("Junction visited stored as 2.");
         }
         else if (movement_arr[count] == 'R')
         {
-            Serial.println("Turn left now.");
-            turn_left_90();
+            Serial.println("Reorienting: R (Right)");
+            Serial.println("Turn right now");
+            turn_right_90();
+            junction_visited[index] = 3;
+            Serial.println("Junction visited stored as 3.");
         }
-        else if (movement_arr[count] == '\0')
-        {
-            Serial.println("End of maze reached.");
-            LeBron_finished_following = true;
-        }
-        count++;
     }
 }
 
@@ -404,21 +349,9 @@ void init_arrays()
 {
     Serial.println("Initializing arrays.");
 
-    memset(final_arr, 0, sizeof(final_arr));
     memset(movement_arr, 0, sizeof(movement_arr));
     memset(junction_nodes, 0, sizeof(junction_nodes));
     memset(junction_visited, 0, sizeof(junction_visited));
-
-    if (memoryRead() == -1)      // if EEPROM is empty
-    {
-        Serial.println("EEPROM is empty.");
-        LeBron_finished_following = true;
-    }
-    else
-    {
-        Serial.println("Movement array copied.");
-        memcpy(final_arr, movement_arr, sizeof(movement_arr));
-    }
 }
 
 void setup()
@@ -441,14 +374,7 @@ void setup()
 
 void loop()
 {
-    // search_maze();
-    if (!LeBron_finished_following && !is_LeBron_done)
-    {
-        index -= 1;                              // decrement index to point to a new last junction after every failed shortcut
-        node_temp = junction_nodes[index];      // saves second last junction node to loop back to after failed shortcut
-        you_who_seek_an_end_to_love_love_will_yield_to_business();
-    }
-    else if (LeBron_finished_following && !is_LeBron_done)
+    if (!is_LeBron_done)
     {
         search_maze();
     }
@@ -456,10 +382,7 @@ void loop()
     {
         if (!has_LeBron_written)
         {
-            if (arrLen(movement_arr) < arrLen(final_arr))
-            {
-                memoryWrite();
-            }
+            memoryWrite();
             has_LeBron_written = true;
         }
     }
