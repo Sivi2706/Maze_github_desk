@@ -159,12 +159,15 @@ void but_you_been_so_outta_touchtouchtouchtouchtouch()
 {
     Serial.println("But you been so outta touch touch touch touch touch.");
     Serial.println("Thought about you way too much much much much much.");
-
+    
     memset(movement_arr, 0, sizeof(movement_arr));
     // memset(junction_nodes, 0, sizeof(junction_nodes));
     // memset(junction_visited, 0, sizeof(junction_visited));
-
+    
     memoryRead();
+    Serial.println("-----");
+    Serial.println(movement_arr);
+    Serial.println("-----");
 }
 
 void setup()
