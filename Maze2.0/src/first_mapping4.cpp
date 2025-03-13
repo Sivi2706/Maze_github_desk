@@ -108,7 +108,7 @@ void search_maze() {
     Serial.println(movement_arr);
     Serial.println("-----");
 
-    delay(5000);
+    // delay(5000);
 
     if ((front == -1 && left == -1) || (front == -1 && right == -1)) {
         if (front == -1 && left == -1 && right == -1) {

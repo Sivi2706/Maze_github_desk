@@ -26,10 +26,11 @@
 #define FNB 11
 
 // Target distance to travel (in centimeters)
-#define TARGET_DISTANCE 22.0
+#define TARGET_DISTANCE 23.0
+#define TARGET_DISTANCE2 12.0
 
 // Motor calibration to fix right-side drift
-#define LEFT_MOTOR_CALIBRATION 1.0
+#define LEFT_MOTOR_CALIBRATION 1.5
 #define RIGHT_MOTOR_CALIBRATION 1.0
 
 // MPU6050 Constants
@@ -108,7 +109,8 @@ void alignToBearing(MPUState &mpu, BearingState &bearing, float targetRelativeBe
 void maintainBearing(MPUState &mpu, BearingState &bearing, MotorState &motor);
 void MoveForward(int PWM);
 void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder, int trigPin1, int echoPin1, int trigPin2, int echoPin2, int trigPin3, int echoPin3);
-void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
+//void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
+void ultraForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
 //void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
 void turn_left_90(MPUState &mpu, BearingState &bearing);
 void turn_right_90(MPUState &mpu, BearingState &bearing);

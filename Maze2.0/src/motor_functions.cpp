@@ -205,41 +205,168 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
 
     unsigned long startTime = millis(); // Track the start time of the movement
 
-    // Loop to maintain absolute bearing while moving forward
+// Loop to maintain absolute bearing while moving forward
+    // while (motor.isMovingForward && !motor.targetReached) {
+    //     updateMPU(mpu); // Update MPU data
+
+    //     // Calculate the error between the target and current absolute bearing
+    //     float error = targetAbsoluteBearing - mpu.yaw;
+
+    //     // Normalize the error to the range [-180, 180]
+    //     if (error > 180) error -= 360;
+    //     if (error < -180) error += 360;
+
+    //     Serial.print("The error is ");
+    //     Serial.println(error);
+
+    //     // If the error exceeds the tolerance, adjust motor speeds to correct the bearing
+    //     if (abs(error) > BEARING_TOLERANCE && millis() - startTime < 2000) { // Only correct for 2 seconds
+    //         int correctionPWM = min(abs(error) * 8, 50); // Proportional correction factor //change the value of abs(error) * VAR 
+
+    //         if (error > 0) {
+    //             // Turn slightly left (reduce left motor speed)
+    //             analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) - correctionPWM);
+    //             analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
+    //         } else {
+    //             // Turn slightly right (reduce right motor speed)
+    //             analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) + correctionPWM);
+    //             analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
+    //         }
+
+    //         Serial.print("Correcting Bearing - Error: ");
+    //         Serial.println(error);
+    //     } else {
+    //         // Maintain straight movement if within tolerance or after 2 seconds
+    //         analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
+    //         analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
+    //     }
+
+    //     // Update distance traveled
+    //     updateDistance(encoder, motor);
+    //     float avgDistance = (encoder.leftTotalDistance + encoder.rightTotalDistance) / 2.0;
+
+    //     // Stop if the target distance is reached
+    //     if (avgDistance >= TARGET_DISTANCE) {
+    //         stopMotors();
+    //         motor.targetReached = true;
+    //         Serial.println("Target distance of 25 cm reached. Stopping.");
+    //         break; // Exit the loop immediately
+    //     }
+
+    //     delay(10); // Small delay to avoid overloading the loop
+    // }
+
+// //    loop w ultrasound to maintain going in straight line
+
+//         while (motor.isMovingForward && !motor.targetReached) {
+//         updateMPU(mpu); // Update MPU data
+        
+
+//         // If the error exceeds the tolerance, adjust motor speeds to correct the bearing
+//         if (abs(error) > BEARING_TOLERANCE && millis() - startTime < 2000) { // Only correct for 2 seconds
+//             int correctionPWM = min(abs(error) * 8, 50); // Proportional correction factor //change the value of abs(error) * VAR 
+
+//             if (error > 0) {
+//                 // Turn slightly left (reduce left motor speed)
+//                 analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) - correctionPWM);
+//                 analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
+//             } else {
+//                 // Turn slightly right (reduce right motor speed)
+//                 analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) + correctionPWM);
+//                 analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
+//             }
+
+//             Serial.print("Correcting Bearing - Error: ");
+//             Serial.println(error);
+//         } else {
+//             // Maintain straight movement if within tolerance or after 2 seconds
+//             analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
+//             analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
+//         }
+
+//         // Update distance traveled
+//         updateDistance(encoder, motor);
+//         float avgDistance = (encoder.leftTotalDistance + encoder.rightTotalDistance) / 2.0;
+
+//         // Stop if the target distance is reached
+//         if (avgDistance >= TARGET_DISTANCE) {
+//             stopMotors();
+//             motor.targetReached = true;
+//             Serial.println("Target distance of 25 cm reached. Stopping.");
+//             break; // Exit the loop immediately
+//         }
+
+//         delay(10); // Small delay to avoid overloading the loop
+//     }
+
+    maintainBearing(mpu, bearing, motor);
+
+    // Stop motors when the target is reached or movement is interrupted
+    stopMotors();
+    Serial.println("Forward movement complete.");
+}
+
+void ultraForwards(int basePWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
+    if (!motor.isMovingForward && !motor.targetReached) {
+        motor.targetReached = false;
+    }
+
+    motor.isMovingForward = true;
+
+    // Desired distance from each wall (in cm)
+    const float desiredDistance = 3.5;
+
+    // Proportional control constant for wall-following (adjust as needed)
+    const float Kp_wall = 0.5;
+
+    // Start moving forward with the base PWM value
+    analogWrite(FNA, basePWM * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNB, basePWM * RIGHT_MOTOR_CALIBRATION);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+
+    Serial.println("Moving Forward...");
+
+    unsigned long startTime = millis(); // Track the start time of the movement
+
     while (motor.isMovingForward && !motor.targetReached) {
         updateMPU(mpu); // Update MPU data
 
-        // Calculate the error between the target and current absolute bearing
-        float error = targetAbsoluteBearing - mpu.yaw;
+        // Get distances from ultrasonic sensors
+        float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+        float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
 
-        // Normalize the error to the range [-180, 180]
-        if (error > 180) error -= 360;
-        if (error < -180) error += 360;
+        // Calculate errors for wall-following
+        float leftError = desiredDistance - leftDistance;
+        float rightError = desiredDistance - rightDistance;
 
-        Serial.print("The error is ");
-        Serial.println(error);
+        // Proportional control adjustments for wall-following
+        int leftAdjustment = Kp_wall * leftError;
+        int rightAdjustment = Kp_wall * rightError;
 
-        // If the error exceeds the tolerance, adjust motor speeds to correct the bearing
-        if (abs(error) > BEARING_TOLERANCE && millis() - startTime < 2000) { // Only correct for 2 seconds
-            int correctionPWM = min(abs(error) * 8, 50); // Proportional correction factor //change the value of abs(error) * VAR 
-
-            if (error > 0) {
-                // Turn slightly left (reduce left motor speed)
-                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) - correctionPWM);
-                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
-            } else {
-                // Turn slightly right (reduce right motor speed)
-                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) + correctionPWM);
-                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
-            }
-
-            Serial.print("Correcting Bearing - Error: ");
-            Serial.println(error);
-        } else {
-            // Maintain straight movement if within tolerance or after 2 seconds
-            analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
-            analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
+        // Apply adjustments based on error direction
+        if (leftError > 0) {
+            // Too close to the left wall, reduce left motor speed
+            leftAdjustment = -leftAdjustment;
         }
+        if (rightError > 0) {
+            // Too close to the right wall, reduce right motor speed
+            rightAdjustment = -rightAdjustment;
+        }
+
+        // Combine adjustments for wall-following
+        int leftPWM = basePWM + leftAdjustment;
+        int rightPWM = basePWM + rightAdjustment;
+
+        // Ensure PWM values are within valid range (0-255)
+        leftPWM = constrain(leftPWM, 0, 255);
+        rightPWM = constrain(rightPWM, 0, 255);
+
+        // Apply adjusted PWM values to motors
+        analogWrite(FNA, leftPWM * LEFT_MOTOR_CALIBRATION);
+        analogWrite(FNB, rightPWM * RIGHT_MOTOR_CALIBRATION);
 
         // Update distance traveled
         updateDistance(encoder, motor);
@@ -255,6 +382,7 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
 
         delay(10); // Small delay to avoid overloading the loop
     }
+
     maintainBearing(mpu, bearing, motor);
 
     // Stop motors when the target is reached or movement is interrupted
@@ -274,7 +402,9 @@ void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderS
 
     Serial.println("Starting forward movement...");
 
-    moveForwards(100, mpu, bearing, motor, encoder);
+    //moveForwards(90, mpu, bearing, motor, encoder);
+    ultraForwards(90, mpuState, bearingState, motorState, encoderState);
+
 
     if (motor.targetReached) {
         Serial.println("Target distance reached.");
@@ -289,7 +419,7 @@ void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderS
     float distance2 = getDistance(trigPin2, echoPin2);
     float distance3 = getDistance(trigPin3, echoPin3);
 
-    if (distance1 < 3.5) {
+    if (distance1 < 3) {
         Serial.println("Obstacle detected within 5 cm. Correcting position...");
 
         // Move backward slightly to avoid collision
