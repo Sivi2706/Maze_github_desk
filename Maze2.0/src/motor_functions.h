@@ -93,7 +93,6 @@ extern MotorState motorState;
 extern MPUState mpuState;
 extern BearingState bearingState;
 
-
 // Function Declarations
 void leftEncoderISR();
 void rightEncoderISR();

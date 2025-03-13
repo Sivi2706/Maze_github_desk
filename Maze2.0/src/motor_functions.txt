@@ -1,5 +1,11 @@
 #include "motor_functions.h"
 
+BooleanFlags flags;
+EncoderState encoderState;
+MotorState motorState;
+MPUState mpuState;
+BearingState bearingState;
+
 void leftEncoderISR() { encoderState.leftPulses++; }
 void rightEncoderISR() { encoderState.rightPulses++; }
 

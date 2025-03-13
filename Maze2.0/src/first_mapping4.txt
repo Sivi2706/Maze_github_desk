@@ -1,6 +1,12 @@
 #include <EEPROM.h>
 #include <motor_functions.h>
 
+char movement_arr[SIZE];
+uint8_t junction_nodes[SIZE];
+uint8_t junction_visited[SIZE];
+uint8_t index;
+uint8_t count;
+
 // EEPROM Memory Functions
 void memoryReset() 
 {
