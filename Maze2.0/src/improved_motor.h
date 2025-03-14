@@ -30,9 +30,9 @@
 #define RIGHT_MOTOR_CALIBRATION 1.0  // Reduce right motor speed if it's stronger
 
 // Encoder and distance calculation variables
-const unsigned int PULSES_PER_TURN = 20;
-const float WHEEL_DIAMETER = 4;
-const float WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
+// extern const unsigned int PULSES_PER_TURN;
+// extern const float WHEEL_DIAMETER;
+// externconst float WHEEL_CIRCUMFERENCE;
 
 // Bearing system variables
 #define NORTH 0
@@ -123,7 +123,7 @@ float getDistance(int trigPin, int echoPin);
 int checkDist(int trigPin, int echoPin);
 void memoryReset();
 void memoryWrite();
-void memoryRead();
+int memoryRead();
 void backtrack_and_reorient();
 void search_maze();
 void init_arrays();

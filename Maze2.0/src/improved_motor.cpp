@@ -1,5 +1,6 @@
 #include "improved_motor.h"
 
+BooleanFlags flags = {0, 0, 1, 0, 0};
 EncoderState encoderState;
 MPUState mpuState;
 BearingState bearingState;
@@ -500,6 +501,8 @@ void updateDistance(EncoderState &encoder, MotorState &motor) {
         encoder.rightPulses = 0;
     }
 }
+
+
 
 // void loop() {
 //     static unsigned long lastPrintTime = 0;
