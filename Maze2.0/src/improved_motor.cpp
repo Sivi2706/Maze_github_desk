@@ -169,87 +169,90 @@ void maintainBearing(MPUState &mpu, BearingState &bearing, MotorState &motor) {
     encoderState.leftPulses = encoderState.rightPulses = encoderState.leftTotalDistance = encoderState.rightTotalDistance = encoderState.target = 0;
 }
 
-void moveForwards() {
-    // Initialize movement
-    motorState.isMovingForward = true;
-    motorState.targetReached = false;
+// void moveForwards() {
+//     // Initialize movement
+//     motorState.isMovingForward = true;
+//     motorState.targetReached = false;
 
-    // Store the current absolute bearing as the target bearing
-    float targetAbsoluteBearing = mpuState.yaw;
+//     // Store the current absolute bearing as the target bearing
+//     float targetAbsoluteBearing = mpuState.yaw;
 
-    Serial.print("Starting movement at absolute bearing: ");
-    Serial.println(targetAbsoluteBearing);
+//     Serial.print("Starting movement at absolute bearing: ");
+//     Serial.println(targetAbsoluteBearing);
 
-    // Start moving forward
-    analogWrite(FNA, 70 * LEFT_MOTOR_CALIBRATION); // Set PWM for left motor
-    analogWrite(FNB, 70 * RIGHT_MOTOR_CALIBRATION); // Set PWM for right motor
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
-    digitalWrite(IN3, HIGH);
-    digitalWrite(IN4, LOW);
+//     // Start moving forward
+//     analogWrite(FNA, 70 * LEFT_MOTOR_CALIBRATION); // Set PWM for left motor
+//     analogWrite(FNB, 70 * RIGHT_MOTOR_CALIBRATION); // Set PWM for right motor
+//     digitalWrite(IN1, HIGH);
+//     digitalWrite(IN2, LOW);
+//     digitalWrite(IN3, HIGH);
+//     digitalWrite(IN4, LOW);
 
-    Serial.println("Moving Forward...");
+//     Serial.println("Moving Forward...");
 
-    // Store the initial distance from the front ultrasonic sensor
-    float initialDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    float currentDistance = initialDistance;
+//     // Store the initial distance from the front ultrasonic sensor
+//     float initialDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+//     float currentDistance = initialDistance;
 
-    // Main movement loop
-    while (motorState.isMovingForward && !motorState.targetReached) {
-        // Update MPU data
-        updateMPU(mpuState);
+//     // Main movement loop
+//     while (motorState.isMovingForward && !motorState.targetReached) {
+//         // Update MPU data
+//         updateMPU(mpuState);
 
-        // Calculate the error between the target and current absolute bearing
-        float error = targetAbsoluteBearing - mpuState.yaw;
+//         // Calculate the error between the target and current absolute bearing
+//         float error = targetAbsoluteBearing - mpuState.yaw;
 
-        // Normalize the error to the range [-180, 180]
-        if (error > 180) error -= 360;
-        if (error < -180) error += 360;
+//         // Normalize the error to the range [-180, 180]
+//         if (error > 180) error -= 360;
+//         if (error < -180) error += 360;
 
-        // Bearing correction
-        if (abs(error) > BEARING_TOLERANCE) {
-            int correctionPWM = min(abs(error) * 5, 30); // Proportional correction factor
+//         // Bearing correction
+//         if (abs(error) > BEARING_TOLERANCE) {
+//             int correctionPWM = min(abs(error) * 5, 30); // Proportional correction factor
 
-            if (error > 0) {
-                // Turn slightly left (reduce left motor speed)
-                analogWrite(FNA, (100 * LEFT_MOTOR_CALIBRATION) - correctionPWM);
-                analogWrite(FNB, (100 * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
-            } else {
-                // Turn slightly right (reduce right motor speed)
-                analogWrite(FNA, (100 * LEFT_MOTOR_CALIBRATION) + correctionPWM);
-                analogWrite(FNB, (100 * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
-            }
-        } else {
-            // Maintain straight movement if within tolerance
-            analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
-            analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
-        }
+//             if (error > 0) {
+//                 // Turn slightly left (reduce left motor speed)
+//                 analogWrite(FNA, (100 * LEFT_MOTOR_CALIBRATION) - correctionPWM);
+//                 analogWrite(FNB, (100 * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
+//             } else {
+//                 // Turn slightly right (reduce right motor speed)
+//                 analogWrite(FNA, (100 * LEFT_MOTOR_CALIBRATION) + correctionPWM);
+//                 analogWrite(FNB, (100 * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
+//             }
+//         } else {
+//             // Maintain straight movement if within tolerance
+//             analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
+//             analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
+//         }
 
-        // Update current distance from the front ultrasonic sensor
-        currentDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+//         // Update current distance from the front ultrasonic sensor
+//         currentDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
 
-        // Calculate the distance traveled
-        float distanceTraveled = initialDistance - currentDistance;
+//         // Calculate the distance traveled
+//         float distanceTraveled = initialDistance - currentDistance;
 
-        // Stop if the target distance (25 cm) is reached
-        if (distanceTraveled >= 25.0) {
-            stopMotors();
-            motorState.targetReached = true;
-            Serial.println("Target distance of 25 cm reached. Stopping.");
-            break; // Exit the loop
-        }
+//         // Stop if the target distance (25 cm) is reached
+//         if (distanceTraveled >= 25.0) {
+//             stopMotors();
+//             motorState.targetReached = true;
+//             Serial.println("Target distance of 25 cm reached. Stopping.");
+//             break; // Exit the loop
+//         }
 
-        delay(50); // Small delay to avoid overloading the loop
-    }
+//         delay(50); // Small delay to avoid overloading the loop
+//     }
 
-    // Align to the target bearing after stopping
-    alignToBearing(mpuState, bearingState, targetAbsoluteBearing);
+//     // Align to the target bearing after stopping
+//     alignToBearing(mpuState, bearingState, targetAbsoluteBearing);
 
-    // Cleanup
-    stopMotors();
-    motorState.targetReached = false;
-    Serial.println("Forward movement complete.");
-}
+//     // Cleanup
+//     stopMotors();
+//     motorState.targetReached = false;
+//     Serial.println("Forward movement complete.");
+// }
+
+
+//==================================================================================================================================
 // void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
 //     if (!motor.isMovingForward && !motor.targetReached) {
 //         motor.targetReached = false;
@@ -384,103 +387,113 @@ void moveForwards() {
 // }
 
 void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
-    // Initialize movement
-    motor.isMovingForward = true;
-    motor.targetReached = false;
+            // Initialize movement
+            motor.isMovingForward = true;
+            motor.targetReached = false;
 
-    // Reset encoder counts and distances
-    encoder.leftPulses = 0;
-    encoder.rightPulses = 0;
-    encoder.leftTotalDistance = 0.0;
-    encoder.rightTotalDistance = 0.0;
+            // Reset encoder counts and distances
+            encoder.leftPulses = 0;
+            encoder.rightPulses = 0;
+            encoder.leftTotalDistance = 0.0;
+            encoder.rightTotalDistance = 0.0;
 
-    // Store the current absolute bearing as the target bearing
-    float targetAbsoluteBearing = mpu.yaw;
+            // Store the current absolute bearing as the target bearing
+            float targetAbsoluteBearing = mpu.yaw;
 
-    // Get the starting distance from the ultrasonic sensor
-    float startingDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    Serial.print("Starting Distance: ");
-    Serial.println(startingDistance);
+            // Get the starting distance from the ultrasonic sensor
+            float startingDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+            Serial.print("Starting Distance: ");
+            Serial.println(startingDistance);
 
-    Serial.print("Starting movement at absolute bearing: ");
-    Serial.println(targetAbsoluteBearing);
+            Serial.print("Starting movement at absolute bearing: ");
+            Serial.println(targetAbsoluteBearing);
 
-    // Start moving forward
-    analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
-    analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
-    digitalWrite(IN3, HIGH);
-    digitalWrite(IN4, LOW);
-
-    Serial.println("Moving Forward...");
-
-    unsigned long startTime = millis(); // Track the start time of the movement
-
-    // Main movement loop
-    while (motor.isMovingForward && !motor.targetReached) {
-        // Update MPU data
-        updateMPU(mpu);
-
-        // Calculate the error between the target and current absolute bearing
-        float error = targetAbsoluteBearing - mpu.yaw;
-
-        // Normalize the error to the range [-180, 180]
-        if (error > 180) error -= 360;
-        if (error < -180) error += 360;
-
-        // Bearing correction
-        if (abs(error) > BEARING_TOLERANCE && millis() - startTime < 2000) { // Correct for 2 seconds
-            int correctionPWM = min(abs(error) * 5, 30); // Proportional correction factor
-
-            if (error > 0) {
-                // Turn slightly left (reduce left motor speed)
-                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) - correctionPWM);
-                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
-            } else {
-                // Turn slightly right (reduce right motor speed)
-                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) + correctionPWM);
-                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
-            }
-        } else {
-            // Maintain straight movement if within tolerance or after 2 seconds
+            // Start moving forward
             analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
             analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
-        }
+            digitalWrite(IN1, HIGH);
+            digitalWrite(IN2, LOW);
+            digitalWrite(IN3, HIGH);
+            digitalWrite(IN4, LOW);
 
-        // Update distance traveled using rotary encoder
-        updateDistance(encoder, motor);
-        float encoderDistance = (encoder.leftTotalDistance + encoder.rightTotalDistance) / 2.0;
+            Serial.println("Moving Forward...");
 
-        // Update current distance from ultrasonic sensor
-        float currentDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-        float ultrasonicDistanceTraveled = startingDistance - currentDistance;
+            unsigned long startTime = millis(); // Track the start time of the movement
 
-        // Stop if the target distance (25 cm) is reached
-        if (ultrasonicDistanceTraveled >= 25.0 || encoderDistance >= 12.5) {
+            // Main movement loop
+            while (motor.isMovingForward && !motor.targetReached) {
+                // Update MPU data
+                updateMPU(mpu);
+
+                // Calculate the error between the target and current absolute bearing
+                float error = targetAbsoluteBearing - mpu.yaw;
+
+                // Normalize the error to the range [-180, 180]
+                if (error > 180) error -= 360;
+                if (error < -180) error += 360;
+
+                // Bearing correction
+                if (abs(error) > BEARING_TOLERANCE && millis() - startTime < 2000) { // Correct for 2 seconds
+                    int correctionPWM = min(abs(error) * 5, 30); // Proportional correction factor
+
+                    if (error > 0) {
+                        // Turn slightly left (reduce left motor speed)
+                        analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) - correctionPWM);
+                        analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
+                    } else {
+                        // Turn slightly right (reduce right motor speed)
+                        analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) + correctionPWM);
+                        analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
+                    }
+                } else {
+                    // Maintain straight movement if within tolerance or after 2 seconds
+                    analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
+                    analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
+                }
+
+                // Update distance traveled using rotary encoder
+                updateDistance(encoder, motor);
+                float encoderDistance = (encoder.leftTotalDistance + encoder.rightTotalDistance) / 2.0;
+
+                // Update current distance from ultrasonic sensor
+                float currentDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+                float ultrasonicDistanceTraveled = startingDistance - currentDistance;
+
+                // Stop if the target distance (25 cm) is reached
+                if (ultrasonicDistanceTraveled >= 25.0 || encoderDistance >= 12.5) {
+                    stopMotors();
+                    motor.targetReached = true;
+                    Serial.println("Target distance of 25 cm reached. Stopping.");
+                    Serial.print("Encoder Distance: ");
+                    Serial.println(encoderDistance);
+                    Serial.print("Ultrasonic Distance Traveled: ");
+                    Serial.println(ultrasonicDistanceTraveled);
+                    break; // Exit the loop immediately
+                }
+
+                // Stop if the current ultrasonic distance is less than or equal to 5 cm
+                if (currentDistance <= 5.0) {
+                    stopMotors();
+                    motor.targetReached = true;
+                    Serial.println("Obstacle detected at 5 cm. Stopping.");
+                    Serial.print("Current Ultrasonic Distance: ");
+                    Serial.println(currentDistance);
+                    break; // Exit the loop immediately
+                }
+
+                delay(5); // Small delay to avoid overloading the loop
+            }
+
+            // Align to the target bearing after stopping
+            alignToBearing(mpu, bearing, targetAbsoluteBearing);
+
+            // Cleanup
             stopMotors();
-            motor.targetReached = true;
-            Serial.println("Target distance of 25 cm reached. Stopping.");
-            Serial.print("Encoder Distance: ");
-            Serial.println(encoderDistance);
-            Serial.print("Ultrasonic Distance Traveled: ");
-            Serial.println(ultrasonicDistanceTraveled);
-            break; // Exit the loop immediately
+            flags.has_LeBron_turn = 0;
+            encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
+            motor.targetReached = false;
+            Serial.println("Forward movement complete.");
         }
-
-        delay(5); // Small delay to avoid overloading the loop
-    }
-
-    // Align to the target bearing after stopping
-    alignToBearing(mpu, bearing, targetAbsoluteBearing);
-
-    // Cleanup
-    stopMotors();
-    flags.has_LeBron_turn = 0;
-    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
-    motor.targetReached = false;
-    Serial.println("Forward movement complete.");
-}
 
 void turnLeft90(MPUState &mpu, BearingState &bearing) {
     flags.has_LeBron_turn = 1;
@@ -557,8 +570,6 @@ void turnLeft90(MPUState &mpu, BearingState &bearing) {
     encoderState.leftPulses = encoderState.rightPulses = encoderState.leftTotalDistance = encoderState.rightTotalDistance = encoderState.target = 0;
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
-
-//================================
 
 void turnRight90(MPUState &mpu, BearingState &bearing) {
     flags.has_LeBron_turn = 1;
@@ -807,7 +818,6 @@ void reverse(int PWM, float distance, MPUState &mpu, BearingState &bearing, Moto
     motor.targetReached = false;
     Serial.println("Forward movement complete.");
 }
-
 
 void stopMotors() {
     motorState.isMovingForward = false;
