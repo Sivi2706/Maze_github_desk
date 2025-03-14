@@ -46,6 +46,28 @@ const int MPU = 0x68;
 const float GYRO_SCALE = 1.0 / 131.0;
 const float ALPHA = 0.96; // Complementary filter coefficient
 
+const unsigned int PULSES_PER_TURN = 20;
+const float WHEEL_DIAMETER = 4;
+const float WHEEL_CIRCUMFERENCE = PI * WHEEL_DIAMETER;
+
+#define ROWS 8
+#define COLS 8
+#define SIZE (ROWS * COLS)
+
+extern char movement_arr[SIZE];
+extern uint8_t junction_nodes[SIZE];
+extern uint8_t junction_visited[SIZE];
+extern uint8_t index;
+extern uint8_t count;
+
+struct BooleanFlags {
+    uint8_t isMovingForward : 1;
+    uint8_t targetReached : 1;
+    uint8_t correctionEnabled : 1;
+    uint8_t is_LeBron_done : 1;
+    uint8_t has_LeBron_written : 1;
+};
+
 struct EncoderState {
     volatile unsigned long leftPulses = 0;
     volatile unsigned long rightPulses = 0;
@@ -73,6 +95,7 @@ struct BearingState {
     bool correctionEnabled = true;
 };
 
+extern BooleanFlags flags;
 extern EncoderState encoderState;
 extern MPUState mpuState;
 extern BearingState bearingState;
@@ -96,3 +119,11 @@ void turnRight90(MPUState &mpu, BearingState &bearing);
 void turn180(MPUState &mpu, BearingState &bearing);
 void stopMotors();
 void updateDistance(EncoderState &encoder, MotorState &motor);
+float getDistance(int trigPin, int echoPin);
+int checkDist(int trigPin, int echoPin);
+void memoryReset();
+void memoryWrite();
+void memoryRead();
+void backtrack_and_reorient();
+void search_maze();
+void init_arrays();

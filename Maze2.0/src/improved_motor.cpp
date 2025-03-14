@@ -501,75 +501,65 @@ void updateDistance(EncoderState &encoder, MotorState &motor) {
     }
 }
 
-void setup() {
-    Serial.begin(115200);
-    pinMode(IN1, OUTPUT);
-    pinMode(IN2, OUTPUT);
-    pinMode(IN3, OUTPUT);
-    pinMode(IN4, OUTPUT);
-    pinMode(FNA, OUTPUT);
-    pinMode(FNB, OUTPUT);
-    pinMode(LEFT_ENCODER_PIN, INPUT_PULLUP);
-    pinMode(RIGHT_ENCODER_PIN, INPUT_PULLUP);
-    attachPCINT(digitalPinToPCINT(LEFT_ENCODER_PIN), leftEncoderISR, CHANGE);
-    attachPCINT(digitalPinToPCINT(RIGHT_ENCODER_PIN), rightEncoderISR, CHANGE);
-    ultrasonicSetup(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
-    ultrasonicSetup(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
-    ultrasonicSetup(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
-    Wire.begin();
-    Wire.beginTransmission(MPU);
-    Wire.write(0x6B);
-    Wire.write(0);
-    Wire.endTransmission(true);
-    calculateError(mpuState);
-    
-    encoderState.leftTotalDistance = 0.0;
-    encoderState.rightTotalDistance = 0.0;
-    motorState.targetReached = false;
+// void loop() {
+//     static unsigned long lastPrintTime = 0;
+//     const unsigned long printInterval = 500;
 
-    delay(1000);
-    updateMPU(mpuState);
-    mpuState.initialYaw = mpuState.yaw;
-    bearingState.currentRelativeBearing = 0.0;
+//     updateMPU(mpuState);
 
-    Serial.print("Initial yaw set to: ");
-    Serial.println(mpuState.initialYaw);
-    Serial.println("Starting with relative bearing of 0 degrees");
-}
+//     if (millis() - lastPrintTime >= printInterval) {
+//         printCurrentBearing(mpuState, bearingState);
+//         lastPrintTime = millis();
+//     }
 
-void loop() {
-    static unsigned long lastPrintTime = 0;
-    const unsigned long printInterval = 500;
+//     if (Serial.available() > 0) {
+//         String input = Serial.readStringUntil('\n');
+//         input.trim();
 
-    updateMPU(mpuState);
+//         if (input == "l") {
+//             turnLeft90(mpuState, bearingState);
+//         } else if (input == "r") {
+//             turnRight90(mpuState, bearingState);
+//         } else if (input == "180") {
+//             turn180(mpuState, bearingState);
+//         } else if (input == "fix") {
+//             alignToBearing(mpuState, bearingState, bearingState.currentRelativeBearing);
+//             Serial.print("Fixed to relative bearing: ");
+//             Serial.println(bearingState.currentRelativeBearing);
+//         } else if (input == "f") {
+//             moveForwards(100, mpuState, bearingState, motorState, encoderState);
+//         } else {
+//             Serial.println("Invalid command. Please enter 'l', 'r', '180', 'fix', or 'f'.");
+//         }
+//     }
 
-    if (millis() - lastPrintTime >= printInterval) {
-        printCurrentBearing(mpuState, bearingState);
-        lastPrintTime = millis();
-    }
+//     delay(100);
+//     // Forward25(mpuState, bearingState, motorState, encoderState);
+//     // delay(1000);
+// }
 
-    if (Serial.available() > 0) {
-        String input = Serial.readStringUntil('\n');
-        input.trim();
+// void loop()
+// {
+//     // static unsigned long lastPrintTime = 0;
+//     // const unsigned long printInterval = 500;
 
-        if (input == "l") {
-            turnLeft90(mpuState, bearingState);
-        } else if (input == "r") {
-            turnRight90(mpuState, bearingState);
-        } else if (input == "180") {
-            turn180(mpuState, bearingState);
-        } else if (input == "fix") {
-            alignToBearing(mpuState, bearingState, bearingState.currentRelativeBearing);
-            Serial.print("Fixed to relative bearing: ");
-            Serial.println(bearingState.currentRelativeBearing);
-        } else if (input == "f") {
-            moveForwards(100, mpuState, bearingState, motorState, encoderState);
-        } else {
-            Serial.println("Invalid command. Please enter 'l', 'r', '180', 'fix', or 'f'.");
-        }
-    }
+//     // updateMPU(mpuState);
 
-    delay(100);
-    // Forward25(mpuState, bearingState, motorState, encoderState);
-    // delay(1000);
-}
+//     // if (millis() - lastPrintTime >= printInterval) {
+//     //     printCurrentBearing(mpuState, bearingState);
+//     //     lastPrintTime = millis();
+//     // }
+
+//     if (flags.is_LeBron_done == 0) 
+//     {
+//         search_maze();
+//     }
+//     else
+//     {
+//         if (flags.has_LeBron_written == 0)
+//         {
+//             memoryWrite();
+//             flags.has_LeBron_written = true;
+//         }
+//     }
+// }
