@@ -261,6 +261,14 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
     Serial.println("Forward movement complete.");
 }
 
+void improvedForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoderState) {
+    if (!motor.isMovingForward && !motor.targetReached) {
+        motor.targetReached = false;
+    }
+
+    float targetAbsoluteBearing = mpu.yaw;
+}
+
 void turnLeft90(MPUState &mpu, BearingState &bearing) {
     flags.has_LeBron_turn = 1;
     float newRelativeBearing = bearing.currentRelativeBearing + 90;
@@ -333,7 +341,7 @@ void turnLeft90(MPUState &mpu, BearingState &bearing) {
     }
     
     stopMotors();
-    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
+    encoderState.leftPulses = encoderState.rightPulses = encoderState.leftTotalDistance = encoderState.rightTotalDistance = encoderState.target = 0;
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
 
@@ -412,11 +420,18 @@ void turnRight90(MPUState &mpu, BearingState &bearing) {
     }
     
     stopMotors();
-    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
+    encoderState.rightPulses = encoderState.leftPulses = encoderState.rightTotalDistance = encoderState.leftTotalDistance = encoderState.target = 0;
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
 
 void turn180(MPUState &mpu, BearingState &bearing) {
+    float front = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
+
+    if (front < 4) {
+        reverse(100, 4 - front, mpuState, bearingState, motorState, encoderState);
+        Serial.println(F("Finished reversing before 180"));
+    }
+
     float newRelativeBearing = bearing.currentRelativeBearing + 180;
     if (newRelativeBearing >= 360) newRelativeBearing -= 360;
 
@@ -484,11 +499,11 @@ void turn180(MPUState &mpu, BearingState &bearing) {
     }
 
     stopMotors();
-    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
+    encoderState.rightPulses = encoderState.leftPulses = encoderState.rightTotalDistance = encoderState.leftTotalDistance = encoderState.target = 0;
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
 
-void reverse(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
+void reverse(int PWM, float distance, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
     if (!motor.isMovingForward && !motor.targetReached) {
         motor.targetReached = false;
     }
@@ -556,7 +571,7 @@ void reverse(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, E
         // if (flags.has_LeBron_turn == 1) {
         //     encoderState.target = 5;
         // } else {encoderState.target = 25;}
-        encoderState.target = 4;
+        encoderState.target = distance;
         // Stop if the target distance is reached
         if (avgDistance >= encoderState.target) {
             stopMotors();

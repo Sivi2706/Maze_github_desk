@@ -39,7 +39,7 @@
 #define EAST 90
 #define SOUTH 180
 #define WEST 270
-const float BEARING_TOLERANCE = 2.0;
+const float BEARING_TOLERANCE = 1.0;
 
 // MPU6050 Setup
 const int MPU = 0x68;
@@ -116,6 +116,7 @@ void printCurrentBearing(const MPUState &mpu, const BearingState &bearing);
 void alignToBearing(MPUState &mpu, BearingState &bearing, float targetRelativeBearing);
 void maintainBearing(MPUState &mpu, BearingState &bearing, MotorState &motor);
 void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
+void reverse(int PWM, float distance, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
 void turnLeft90(MPUState &mpu, BearingState &bearing);
 void turnRight90(MPUState &mpu, BearingState &bearing);
 void turn180(MPUState &mpu, BearingState &bearing);
