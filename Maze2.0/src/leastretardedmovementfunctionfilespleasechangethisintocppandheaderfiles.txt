@@ -81,6 +81,22 @@ BearingState bearingState;
 // Interrupt service routines
 void leftEncoderISR() { encoderState.leftPulses++; }
 void rightEncoderISR() { encoderState.rightPulses++; }
+void ultrasonicSetup(int trigPin, int echoPin);
+void calculateError(MPUState &mpu);
+void getOrientation(MPUState &mpu);
+void getAcceleration(MPUState &mpu);
+void updateMPU(MPUState &mpu);
+float normalizeYaw(float rawYaw);
+float getCurrentRelativeBearing(const MPUState &mpu, const BearingState &bearing);
+void printCurrentBearing(const MPUState &mpu, const BearingState &bearing);
+void alignToBearing(MPUState &mpu, BearingState &bearing, float targetRelativeBearing);
+void maintainBearing(MPUState &mpu, BearingState &bearing, MotorState &motor);
+void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
+void turnLeft90(MPUState &mpu, BearingState &bearing);
+void turnRight90(MPUState &mpu, BearingState &bearing);
+void turn180(MPUState &mpu, BearingState &bearing);
+void stopMotors();
+void updateDistance(EncoderState &encoder, MotorState &motor);
 
 void ultrasonicSetup(int trigPin, int echoPin) {
     pinMode(trigPin, OUTPUT);
@@ -233,24 +249,11 @@ void maintainBearing(MPUState &mpu, BearingState &bearing, MotorState &motor) {
             }
             
             delay(50);
-            MoveForward(100);
+            moveForwards(100, mpuState, bearingState, motorState, encoderState);
         } else {
             alignToBearing(mpu, bearing, bearing.currentRelativeBearing);
         }
     }
-}
-
-
-
-void MoveForward(int PWM) {
-    motorState.isMovingForward = true;
-    analogWrite(FNA, PWM);
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
-    analogWrite(FNB, PWM);
-    digitalWrite(IN3, HIGH);
-    digitalWrite(IN4, LOW);
-    Serial.println("Moving Forward...");
 }
 
 void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
@@ -335,26 +338,26 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
     Serial.println("Forward movement complete.");
 }
 
-void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
-    encoder.leftTotalDistance = 0.0;
-    encoder.rightTotalDistance = 0.0;
-    motor.targetReached = false;
-    encoder.leftPulses = 0;
-    encoder.rightPulses = 0;
-    Serial.println("Distance tracking reset for forward movement");
+// void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
+//     encoder.leftTotalDistance = 0.0;
+//     encoder.rightTotalDistance = 0.0;
+//     motor.targetReached = false;
+//     encoder.leftPulses = 0;
+//     encoder.rightPulses = 0;
+//     Serial.println("Distance tracking reset for forward movement");
 
-    bearing.correctionEnabled = false;
+//     bearing.correctionEnabled = false;
 
-    Serial.println("Starting forward movement...");
+//     Serial.println("Starting forward movement...");
 
-    moveForwards(100, mpu, bearing, motor, encoder);
+//     moveForwards(100, mpu, bearing, motor, encoder);
 
-    if (motor.targetReached) {
-        Serial.println("Target distance reached.");
-    }
+//     if (motor.targetReached) {
+//         Serial.println("Target distance reached.");
+//     }
 
-    bearing.correctionEnabled = true;
-}
+//     bearing.correctionEnabled = true;
+// }
 
 // void turnLeft90(MPUState &mpu, BearingState &bearing) {
 //     float newRelativeBearing = bearing.currentRelativeBearing + 90;
@@ -818,7 +821,7 @@ void loop() {
             Serial.print("Fixed to relative bearing: ");
             Serial.println(bearingState.currentRelativeBearing);
         } else if (input == "f") {
-            Forward25(mpuState, bearingState, motorState, encoderState);
+            moveForwards(100, mpuState, bearingState, motorState, encoderState);
         } else {
             Serial.println("Invalid command. Please enter 'l', 'r', '180', 'fix', or 'f'.");
         }
