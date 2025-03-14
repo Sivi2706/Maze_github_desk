@@ -152,22 +152,22 @@ void maintainBearing(MPUState &mpu, BearingState &bearing, MotorState &motor) {
         
         if (motor.isMovingForward) {
             if (error > 0) {
-                analogWrite(FNA, (110 * LEFT_MOTOR_CALIBRATION) - correctionPWM);
-                analogWrite(FNB, (110 * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
+                analogWrite(FNA, (100 * LEFT_MOTOR_CALIBRATION) - correctionPWM);
+                analogWrite(FNB, (100 * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
             } else {
-                analogWrite(FNA, (110 * LEFT_MOTOR_CALIBRATION) + correctionPWM);
-                analogWrite(FNB, (110 * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
+                analogWrite(FNA, (100 * LEFT_MOTOR_CALIBRATION) + correctionPWM);
+                analogWrite(FNB, (100 * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
             }
             
             delay(50);
-            moveForwards(100, mpuState, bearingState, motorState, encoderState);
+            moveForwards(100, 25, mpuState, bearingState, motorState, encoderState);
         } else {
             alignToBearing(mpu, bearing, bearing.currentRelativeBearing);
         }
     }
 }
 
-void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
+void moveForwards(int PWM, float distance, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
     if (!motor.isMovingForward && !motor.targetReached) {
         motor.targetReached = false;
     }
@@ -233,19 +233,21 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
         float avgDistance = (encoder.leftTotalDistance + encoder.rightTotalDistance) / 2.0;
 
         // Stop if the target distance is reached
-        if (avgDistance >= TARGET_DISTANCE) {
+        if (avgDistance >= distance) {
             stopMotors();
             motor.targetReached = true;
             Serial.println("Target distance of 25 cm reached. Stopping.");
             break; // Exit the loop immediately
         }
 
-        delay(10); // Small delay to avoid overloading the loop
+        delay(5); // Small delay to avoid overloading the loop
     }
     maintainBearing(mpu, bearing, motor);
 
     // Stop motors when the target is reached or movement is interrupted
     stopMotors();
+    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = 0;
+    motor.targetReached = false;
     Serial.println("Forward movement complete.");
 }
 
@@ -266,8 +268,8 @@ void turnLeft90(MPUState &mpu, BearingState &bearing) {
     analogWrite(FNA, 255 * LEFT_MOTOR_CALIBRATION);
     analogWrite(FNB, 255 * RIGHT_MOTOR_CALIBRATION);
     delay(10);
-    analogWrite(FNA, 110 * LEFT_MOTOR_CALIBRATION);  // Adjusted to match turnRight90
-    analogWrite(FNB, 110 * RIGHT_MOTOR_CALIBRATION); // Adjusted to match turnRight90
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);  // Adjusted to match turnRight90
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION); // Adjusted to match turnRight90
     
     float startYaw = mpu.yaw;
     float targetYaw = startYaw + 90.0;  // Corrected: Left turn increases yaw
@@ -343,8 +345,8 @@ void turnRight90(MPUState &mpu, BearingState &bearing) {
     analogWrite(FNA, 255 * LEFT_MOTOR_CALIBRATION);
     analogWrite(FNB, 255 * RIGHT_MOTOR_CALIBRATION);
     delay(10);
-    analogWrite(FNA, 110 * LEFT_MOTOR_CALIBRATION);
-    analogWrite(FNB, 110 * RIGHT_MOTOR_CALIBRATION);
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     
     float startYaw = mpu.yaw;
     float targetYaw = startYaw - 90.0;
@@ -410,10 +412,10 @@ void turn180(MPUState &mpu, BearingState &bearing) {
     Serial.print(newRelativeBearing);
     Serial.println("°");
 
-    analogWrite(FNA, 115 * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNA, 100 * LEFT_MOTOR_CALIBRATION);
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-    analogWrite(FNB, 115 * RIGHT_MOTOR_CALIBRATION);
+    analogWrite(FNB, 100 * RIGHT_MOTOR_CALIBRATION);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
 
@@ -500,6 +502,28 @@ void updateDistance(EncoderState &encoder, MotorState &motor) {
         encoder.leftPulses = 0;
         encoder.rightPulses = 0;
     }
+}
+
+float getDistance(int trigPin, int echoPin) {
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    long duration = pulseIn(echoPin, HIGH, 30000);
+    Serial.print(F("NIAMA DISTANCE FOR TRIG"));
+    Serial.println(trigPin);
+    Serial.print(F("DISTANCE: "));
+    Serial.println(duration * 0.0343 / 2.0);
+    return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
+}
+
+//returns true or false depending on the distance from ultrasonic sensors
+int checkDist(int trigPin, int echoPin) {
+  float distance = getDistance(trigPin, echoPin);
+    if (distance > 75) return -1; 
+    else if (distance <= 10) return 0;
+    else return 1;
 }
 
 

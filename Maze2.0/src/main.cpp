@@ -4,8 +4,8 @@
 char movement_arr[SIZE];
 uint8_t junction_nodes[SIZE];
 uint8_t junction_visited[SIZE];
-uint8_t index;
-uint8_t count;
+uint8_t index = 0;
+uint8_t count = 0;
 
 void memoryReset() {
     Serial.println(F("Executing memoryReset()"));
@@ -60,7 +60,7 @@ void backtrack_and_reorient() {
         
         if (movement_arr[count] == 'F') {
             Serial.println(F("Move forward now"));
-            moveForwards(110, mpuState, bearingState, motorState, encoderState);
+            moveForwards(110, 25, mpuState, bearingState, motorState, encoderState);
         } else if (movement_arr[count] == 'L') {
             Serial.println(F("Turn right now"));
             turnRight90(mpuState, bearingState);
@@ -72,7 +72,7 @@ void backtrack_and_reorient() {
 
     if (movement_arr[junction_nodes[index]] == 'F') {
         Serial.println(F("Move forwards now"));
-        moveForwards(110, mpuState, bearingState, motorState, encoderState);
+        moveForwards(110, 25, mpuState, bearingState, motorState, encoderState);
     }
 
     if (movement_arr[count] == 'F') {
@@ -112,15 +112,15 @@ void search_maze() {
 
     delay(3000);
 
-    if ((front == -1 && left == -1) || (front == -1 && right == -1)) {
-        if (front == -1 && left == -1 && right == -1) {
-            Serial.println(F("End of maze reached"));
-            movement_arr[count] = '\0';
-            flags.is_LeBron_done = 1;
-            return;
-        }
-        return;
-    }
+    // if ((front == -1 && left == -1) || (front == -1 && right == -1)) {
+    //     if (front == -1 && left == -1 && right == -1) {
+    //         Serial.println(F("End of maze reached"));
+    //         movement_arr[count] = '\0';
+    //         flags.is_LeBron_done = 1;
+    //         return;
+    //     }
+    //     return;
+    // }
 
     if (front != 0 && (count != junction_nodes[index] || junction_visited[index] < 1)) {
         if (left == 1 || right == 1) {
@@ -128,9 +128,9 @@ void search_maze() {
             junction_nodes[index] = count;
         }
 
-        Serial.println(F("Move forward now"));
-        moveForwards(110, mpuState, bearingState, motorState, encoderState);
-        movement_arr[count] == 'F';
+        Serial.println(F("Move forward now 1"));
+        moveForwards(110, 25, mpuState, bearingState, motorState, encoderState);
+        movement_arr[count] = 'F';
         count++;
     } else if (left != 0 && (count != junction_nodes[index] || junction_visited[index] < 2)) {
         if (right == 1) {
@@ -143,8 +143,8 @@ void search_maze() {
         movement_arr[count] = 'L';
         count++;
 
-        Serial.println(F("Move forward now"));
-        moveForwards(110, mpuState, bearingState, motorState, encoderState);
+        Serial.println(F("Move forward now 2"));
+        moveForwards(110, 5, mpuState, bearingState, motorState, encoderState);
         movement_arr[count] = 'F';
         count++;
     } else if (right != 0 && (count != junction_nodes[index] || junction_visited[index] < 3)) {
@@ -153,8 +153,8 @@ void search_maze() {
         movement_arr[count] = 'R';
         count++;
         
-        Serial.println(F("Move forward now"));
-        moveForwards(110, mpuState, bearingState, motorState, encoderState);
+        Serial.println(F("Move forward now 3"));
+        moveForwards(110, 5, mpuState, bearingState, motorState, encoderState);
         movement_arr[count] = 'F';
         count++;
     } else {

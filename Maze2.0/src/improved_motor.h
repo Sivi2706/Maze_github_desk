@@ -113,7 +113,7 @@ float getCurrentRelativeBearing(const MPUState &mpu, const BearingState &bearing
 void printCurrentBearing(const MPUState &mpu, const BearingState &bearing);
 void alignToBearing(MPUState &mpu, BearingState &bearing, float targetRelativeBearing);
 void maintainBearing(MPUState &mpu, BearingState &bearing, MotorState &motor);
-void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
+void moveForwards(int PWM, float distance, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
 void turnLeft90(MPUState &mpu, BearingState &bearing);
 void turnRight90(MPUState &mpu, BearingState &bearing);
 void turn180(MPUState &mpu, BearingState &bearing);
@@ -127,3 +127,5 @@ int memoryRead();
 void backtrack_and_reorient();
 void search_maze();
 void init_arrays();
+float getDistance(int trigPin, int echoPin);
+int checkDist(int trigPin, int echoPin);
