@@ -39,7 +39,7 @@
 #define EAST 90
 #define SOUTH 180
 #define WEST 270
-const float BEARING_TOLERANCE = 1.0;
+const float BEARING_TOLERANCE = 5.0;
 
 // MPU6050 Setup
 const int MPU = 0x68;
