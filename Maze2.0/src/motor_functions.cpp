@@ -335,8 +335,19 @@ void ultraForwards(int basePWM, MPUState &mpu, BearingState &bearing, MotorState
         updateMPU(mpu); // Update MPU data
 
         // Get distances from ultrasonic sensors
+        float frontDistance = getDistance(FRONT_TRIGGER_PIN, FRONT_ECHO_PIN);
         float leftDistance = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
         float rightDistance = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+        
+        // Adjust PWM based on front distance
+        int adjustedPWM = basePWM;
+        if (frontDistance < desiredDistance) {
+            // Stop if too close to an obstacle
+            adjustedPWM = 0;
+        } else if (frontDistance < 25) {
+            // Slow down proportionally as the robot gets closer to an obstacle
+            adjustedPWM = map(frontDistance, 10, 50, 50, basePWM);
+        }
 
         // Calculate errors for wall-following
         float leftError = desiredDistance - leftDistance;
