@@ -66,6 +66,7 @@ struct BooleanFlags {
     uint8_t correctionEnabled : 1;
     uint8_t is_LeBron_done : 1;
     uint8_t has_LeBron_written : 1;
+    uint8_t has_LeBron_turn: 1;
 };
 
 struct EncoderState {
@@ -73,6 +74,7 @@ struct EncoderState {
     volatile unsigned long rightPulses = 0;
     float leftTotalDistance = 0.0;
     float rightTotalDistance = 0.0;
+    float target = 0.0;
 };
 
 struct MotorState {
@@ -113,7 +115,7 @@ float getCurrentRelativeBearing(const MPUState &mpu, const BearingState &bearing
 void printCurrentBearing(const MPUState &mpu, const BearingState &bearing);
 void alignToBearing(MPUState &mpu, BearingState &bearing, float targetRelativeBearing);
 void maintainBearing(MPUState &mpu, BearingState &bearing, MotorState &motor);
-void moveForwards(int PWM, float distance, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
+void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder);
 void turnLeft90(MPUState &mpu, BearingState &bearing);
 void turnRight90(MPUState &mpu, BearingState &bearing);
 void turn180(MPUState &mpu, BearingState &bearing);

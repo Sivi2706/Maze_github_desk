@@ -335,7 +335,102 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
 
     // Stop motors when the target is reached or movement is interrupted
     stopMotors();
+    encoder.leftPulses = encoder.rightPulses = encoder.leftTotalDistance = encoder.rightTotalDistance = 0;
+    motor.targetReached = false;
     Serial.println("Forward movement complete.");
+}
+
+float getDistance(int trigPin, int echoPin) {
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    long duration = pulseIn(echoPin, HIGH, 30000);
+    Serial.print(F("NIAMA DISTANCE FOR TRIG"));
+    Serial.println(trigPin);
+    Serial.print(F("DISTANCE: "));
+    Serial.println(duration * 0.0343 / 2.0);
+    return (duration == 0) ? 0 : (duration * 0.0343 / 2.0);
+}
+
+void ultraForwards(int PWM, MotorState &motor, EncoderState &encoder) {
+    if (!motor.isMovingForward && !motor.targetReached) {
+        motor.targetReached = false;
+    }
+
+    motor.isMovingForward = true;
+
+    int left, right;
+
+    analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
+
+    Serial.println(F("Moving forwards"));
+
+    unsigned long startTime = millis();
+
+    float error;
+
+    while (motor.isMovingForward && !motor.targetReached) {
+        left = getDistance(LEFT_TRIGGER_PIN, LEFT_ECHO_PIN);
+        right = getDistance(RIGHT_TRIGGER_PIN, RIGHT_ECHO_PIN);
+
+        error = left - right;
+
+        if (abs(error) > 3.0) {
+            if (left > right) {
+                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION));
+                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION));
+                digitalWrite(IN1, LOW);
+                digitalWrite(IN2, HIGH);
+                digitalWrite(IN3, HIGH);
+                digitalWrite(IN4, LOW);
+            } else if (right > left) {
+                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION));
+                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION));
+                digitalWrite(IN1, HIGH);
+                digitalWrite(IN2, LOW);
+                digitalWrite(IN3, LOW);
+                digitalWrite(IN4, HIGH);
+            }
+        } else if (abs(error) > 2.0) {
+            int correctionPWM = pow(6, error);
+            if (left > right) {
+                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) - correctionPWM);
+                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
+            } else if (right > left) {
+                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) + correctionPWM);
+                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
+            }
+            digitalWrite(IN1, HIGH);
+            digitalWrite(IN2, LOW);
+            digitalWrite(IN3, HIGH);
+            digitalWrite(IN4, LOW);
+        } else {
+            analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
+            analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
+            digitalWrite(IN1, HIGH);
+            digitalWrite(IN2, LOW);
+            digitalWrite(IN3, HIGH);
+            digitalWrite(IN4, LOW);
+        }
+
+        updateDistance(encoder, motor);
+        float avgDistance = (encoder.leftTotalDistance + encoder.rightTotalDistance) / 2.0;
+
+        if (avgDistance >= TARGET_DISTANCE) {
+            stopMotors();
+            motor.targetReached = true;
+            Serial.println(F("Target distance reached"));
+            break;
+        }
+
+        delay(20);
+    }
+
+    stopMotors();
+    Serial.println("Forward movement done");
 }
 
 // void Forward25(MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {

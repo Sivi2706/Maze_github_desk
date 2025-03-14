@@ -60,7 +60,7 @@ void backtrack_and_reorient() {
         
         if (movement_arr[count] == 'F') {
             Serial.println(F("Move forward now"));
-            moveForwards(110, 25, mpuState, bearingState, motorState, encoderState);
+            moveForwards(110, mpuState, bearingState, motorState, encoderState);
         } else if (movement_arr[count] == 'L') {
             Serial.println(F("Turn right now"));
             turnRight90(mpuState, bearingState);
@@ -72,7 +72,7 @@ void backtrack_and_reorient() {
 
     if (movement_arr[junction_nodes[index]] == 'F') {
         Serial.println(F("Move forwards now"));
-        moveForwards(110, 25, mpuState, bearingState, motorState, encoderState);
+        moveForwards(110, mpuState, bearingState, motorState, encoderState);
     }
 
     if (movement_arr[count] == 'F') {
@@ -129,7 +129,7 @@ void search_maze() {
         }
 
         Serial.println(F("Move forward now 1"));
-        moveForwards(110, 25, mpuState, bearingState, motorState, encoderState);
+        moveForwards(110, mpuState, bearingState, motorState, encoderState);
         movement_arr[count] = 'F';
         count++;
     } else if (left != 0 && (count != junction_nodes[index] || junction_visited[index] < 2)) {
@@ -144,7 +144,7 @@ void search_maze() {
         count++;
 
         Serial.println(F("Move forward now 2"));
-        moveForwards(110, 5, mpuState, bearingState, motorState, encoderState);
+        moveForwards(110, mpuState, bearingState, motorState, encoderState);
         movement_arr[count] = 'F';
         count++;
     } else if (right != 0 && (count != junction_nodes[index] || junction_visited[index] < 3)) {
@@ -154,7 +154,7 @@ void search_maze() {
         count++;
         
         Serial.println(F("Move forward now 3"));
-        moveForwards(110, 5, mpuState, bearingState, motorState, encoderState);
+        moveForwards(110, mpuState, bearingState, motorState, encoderState);
         movement_arr[count] = 'F';
         count++;
     } else {

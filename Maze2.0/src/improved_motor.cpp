@@ -1,6 +1,6 @@
 #include "improved_motor.h"
 
-BooleanFlags flags = {0, 0, 1, 0, 0};
+BooleanFlags flags = {0, 0, 1, 0, 0, 0};
 EncoderState encoderState;
 MPUState mpuState;
 BearingState bearingState;
@@ -160,14 +160,14 @@ void maintainBearing(MPUState &mpu, BearingState &bearing, MotorState &motor) {
             }
             
             delay(50);
-            moveForwards(100, 25, mpuState, bearingState, motorState, encoderState);
+            moveForwards(100, mpuState, bearingState, motorState, encoderState);
         } else {
             alignToBearing(mpu, bearing, bearing.currentRelativeBearing);
         }
     }
 }
 
-void moveForwards(int PWM, float distance, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
+void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
     if (!motor.isMovingForward && !motor.targetReached) {
         motor.targetReached = false;
     }
@@ -208,7 +208,7 @@ void moveForwards(int PWM, float distance, MPUState &mpu, BearingState &bearing,
 
         // If the error exceeds the tolerance, adjust motor speeds to correct the bearing
         if (abs(error) > BEARING_TOLERANCE && millis() - startTime < 2000) { // Only correct for 2 seconds
-            int correctionPWM = min(abs(error) * 8, 50); // Proportional correction factor //change the value of abs(error) * VAR 
+            int correctionPWM = min(abs(error) * 20, 50); // Proportional correction factor //change the value of abs(error) * VAR 
 
             if (error > 0) {
                 // Turn slightly left (reduce left motor speed)
@@ -232,11 +232,20 @@ void moveForwards(int PWM, float distance, MPUState &mpu, BearingState &bearing,
         updateDistance(encoder, motor);
         float avgDistance = (encoder.leftTotalDistance + encoder.rightTotalDistance) / 2.0;
 
+        if (flags.has_LeBron_turn == 1) {
+            encoderState.target = 5;
+        } else {encoderState.target = 25;}
+
+        Serial.print(F("Niama distance is: "));
+        Serial.println(encoderState.target);
         // Stop if the target distance is reached
-        if (avgDistance >= distance) {
+        if (avgDistance >= encoderState.target) {
             stopMotors();
             motor.targetReached = true;
             Serial.println("Target distance of 25 cm reached. Stopping.");
+            Serial.print(F("Target distance of "));
+            Serial.print(encoderState.target);
+            Serial.println(F("reached"));
             break; // Exit the loop immediately
         }
 
@@ -246,12 +255,14 @@ void moveForwards(int PWM, float distance, MPUState &mpu, BearingState &bearing,
 
     // Stop motors when the target is reached or movement is interrupted
     stopMotors();
-    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = 0;
+    flags.has_LeBron_turn = 0;
+    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
     motor.targetReached = false;
     Serial.println("Forward movement complete.");
 }
 
 void turnLeft90(MPUState &mpu, BearingState &bearing) {
+    flags.has_LeBron_turn = 1;
     float newRelativeBearing = bearing.currentRelativeBearing + 90;
     if (newRelativeBearing > 360) newRelativeBearing -= 360;
     
@@ -322,12 +333,14 @@ void turnLeft90(MPUState &mpu, BearingState &bearing) {
     }
     
     stopMotors();
+    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
 
 //================================
 
 void turnRight90(MPUState &mpu, BearingState &bearing) {
+    flags.has_LeBron_turn = 1;
     float newRelativeBearing = bearing.currentRelativeBearing - 90;
     if (newRelativeBearing < 0) newRelativeBearing += 360;
     
@@ -399,6 +412,7 @@ void turnRight90(MPUState &mpu, BearingState &bearing) {
     }
     
     stopMotors();
+    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
 
@@ -470,8 +484,102 @@ void turn180(MPUState &mpu, BearingState &bearing) {
     }
 
     stopMotors();
+    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
     Serial.println("Alignment complete. Robot is at target bearing.");
 }
+
+void reverse(int PWM, MPUState &mpu, BearingState &bearing, MotorState &motor, EncoderState &encoder) {
+    if (!motor.isMovingForward && !motor.targetReached) {
+        motor.targetReached = false;
+    }
+
+    motor.isMovingForward = true;
+
+    // Store the current absolute bearing at the start of movement
+    float targetAbsoluteBearing = mpu.yaw; // Use the MPU's raw yaw as the absolute bearing
+
+    Serial.print("Starting movement at absolute bearing: ");
+    Serial.println(targetAbsoluteBearing);
+
+    // Start moving forward
+    analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
+    analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+
+    Serial.println("Reverse...");
+
+    unsigned long startTime = millis(); // Track the start time of the movement
+
+    // Loop to maintain absolute bearing while moving forward
+    while (motor.isMovingForward && !motor.targetReached) {
+        updateMPU(mpu); // Update MPU data
+
+        // Calculate the error between the target and current absolute bearing
+        float error = targetAbsoluteBearing - mpu.yaw;
+
+        // Normalize the error to the range [-180, 180]
+        if (error > 180) error -= 360;
+        if (error < -180) error += 360;
+
+        Serial.print("The error is ");
+        Serial.println(error);
+
+        // If the error exceeds the tolerance, adjust motor speeds to correct the bearing
+        if (abs(error) > BEARING_TOLERANCE && millis() - startTime < 2000) { // Only correct for 2 seconds
+            int correctionPWM = min(abs(error) * 20, 50); // Proportional correction factor //change the value of abs(error) * VAR 
+
+            if (error > 0) {
+                // Turn slightly left (reduce left motor speed)
+                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) + correctionPWM);
+                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) - correctionPWM);
+            } else {
+                // Turn slightly right (reduce right motor speed)
+                analogWrite(FNA, (PWM * LEFT_MOTOR_CALIBRATION) - correctionPWM);
+                analogWrite(FNB, (PWM * RIGHT_MOTOR_CALIBRATION) + correctionPWM);
+            }
+
+            Serial.print("Correcting Bearing - Error: ");
+            Serial.println(error);
+        } else {
+            // Maintain straight movement if within tolerance or after 2 seconds
+            analogWrite(FNA, PWM * LEFT_MOTOR_CALIBRATION);
+            analogWrite(FNB, PWM * RIGHT_MOTOR_CALIBRATION);
+        }
+
+        // Update distance traveled
+        updateDistance(encoder, motor);
+        float avgDistance = (encoder.leftTotalDistance + encoder.rightTotalDistance) / 2.0;
+
+        // if (flags.has_LeBron_turn == 1) {
+        //     encoderState.target = 5;
+        // } else {encoderState.target = 25;}
+        encoderState.target = 4;
+        // Stop if the target distance is reached
+        if (avgDistance >= encoderState.target) {
+            stopMotors();
+            motor.targetReached = true;
+            Serial.println("Target distance of 25 cm reached. Stopping.");
+            Serial.print(F("Target distance of "));
+            Serial.print(encoderState.target);
+            Serial.println(F("reached"));
+            break; // Exit the loop immediately
+        }
+
+        delay(5); // Small delay to avoid overloading the loop
+    }
+    maintainBearing(mpu, bearing, motor);
+
+    // Stop motors when the target is reached or movement is interrupted
+    stopMotors();
+    flags.has_LeBron_turn = 0;
+    encoder.leftTotalDistance = encoder.rightTotalDistance = encoder.leftPulses = encoder.rightPulses = encoder.target = 0;
+    motor.targetReached = false;
+    Serial.println("Forward movement complete.");
+}
+
 
 void stopMotors() {
     motorState.isMovingForward = false;
@@ -494,7 +602,10 @@ void updateDistance(EncoderState &encoder, MotorState &motor) {
         Serial.print("Avg Distance: ");
         Serial.println(avgDistance);
 
-        if (avgDistance >= TARGET_DISTANCE && !motor.targetReached) {
+        if (flags.has_LeBron_turn == 1) encoder.target = 5;
+        else encoder.target = 25;
+
+        if (avgDistance >= encoder.target && !motor.targetReached) {
             stopMotors();
             motor.targetReached = true;
         }
