@@ -102,7 +102,7 @@ void but_you_been_so_outta_touchtouchtouchtouchtouch()
 }
 
 void setup(){
-    Serial.begin(9600);
+    Serial.begin(115200);
     pinMode(IN1, OUTPUT);
     pinMode(IN2, OUTPUT);
     pinMode(IN3, OUTPUT);
@@ -134,6 +134,7 @@ void setup(){
     updateMPU(mpuState);
     mpuState.initialYaw = mpuState.yaw;
     bearingState.currentRelativeBearing = 0.0;
+    Serial.println(movement_arr);
 
     but_you_been_so_outta_touchtouchtouchtouchtouch();
 }

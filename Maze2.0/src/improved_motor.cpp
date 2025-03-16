@@ -244,7 +244,7 @@ void moveForwards(int PWM, MPUState &mpu, BearingState &bearing, MotorState &mot
                 float ultrasonicDistanceTraveled = startingDistance - currentDistance;
 
                 // Stop if the target distance (25 cm) is reached
-                if (ultrasonicDistanceTraveled >= 25.0 || encoderDistance >= 12.5) {
+                if (ultrasonicDistanceTraveled >= 25.0 || encoderDistance >= 18) {
                     stopMotors();
                     motor.targetReached = true;
                     Serial.println("Target distance of 25 cm reached. Stopping.");
@@ -624,7 +624,7 @@ void updateDistance(EncoderState &encoder, MotorState &motor) {
         Serial.print("Avg Distance: ");
         Serial.println(avgDistance);
 
-        if (flags.has_LeBron_turn == 1) encoder.target = 5;
+        if (flags.has_LeBron_turn == 1) encoder.target = 12;
         else encoder.target = 25;
 
         if (avgDistance >= encoder.target && !motor.targetReached) {
@@ -651,7 +651,7 @@ float getDistance(int trigPin, int echoPin) {
 int checkDist(int trigPin, int echoPin) {
   float distance = getDistance(trigPin, echoPin);
     if (distance > 75) return -1; 
-    else if (distance <= 10) return 0;
+    else if (distance <= 13) return 0;
     else return 1;
 }
 

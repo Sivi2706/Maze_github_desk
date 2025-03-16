@@ -83,7 +83,7 @@ int memoryRead() {
 void backtrack()
 {
     turn180(mpuState, bearingState);
-    delay(5000);
+    delay(500);
 
     Serial.println("Backtrack starting.");
 
@@ -106,7 +106,7 @@ void backtrack()
         }
     }    
 
-    delay(1000);
+    delay(500);
 
     if (movement_arr[junction_nodes[index]] == 'F')
     {
@@ -118,6 +118,7 @@ void backtrack()
 
 
 void search_maze() {
+    delay(1000);
     Serial.print(F("Currently in loop: "));
     Serial.println(count);
 
@@ -137,7 +138,7 @@ void search_maze() {
     Serial.println(movement_arr);
     Serial.println(F("------"));
 
-    delay(3000);
+    delay(2500);
 
     if (front == -1 && left == -1 && right == -1)
     {
@@ -157,6 +158,7 @@ void search_maze() {
         turnRight90(mpuState, bearingState);
         movement_arr[count] = 'R';
         count++;
+        reverse(90, 3, mpuState, bearingState, motorState, encoderState);
         
         Serial.println(F("Move forward now 3"));
         moveForwards(90, mpuState, bearingState, motorState, encoderState);
@@ -179,6 +181,7 @@ void search_maze() {
         turnLeft90(mpuState, bearingState);
         movement_arr[count] = 'L';
         count++;
+        reverse(90, 3, mpuState, bearingState, motorState, encoderState);
 
         Serial.println(F("Move forward now 2"));
         moveForwards(90, mpuState, bearingState, motorState, encoderState);
@@ -260,7 +263,7 @@ void setup() {
     encoderState.rightTotalDistance = 0.0;
     motorState.targetReached = false;
 
-    delay(1000);
+    (1000);
     updateMPU(mpuState);
     mpuState.initialYaw = mpuState.yaw;
     bearingState.currentRelativeBearing = 0.0;
